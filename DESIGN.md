@@ -114,7 +114,7 @@ The platform is designed as an eight-tier security architecture, where each tier
 
 The platform is structured as eight tiers, each mapping to one or more OSI layers, traversed in sequence - no tier can be bypassed. Each tier band carries a `STEP-###` label that links to the full explanation in [Section 5](#5-architecture-walkthrough). Arrows carry `SCN-###` labels linking to [Section 6](#6-scenario-traces) and `REQ-#.#` labels linking to [Section 7](#7-requirements-traceability-matrix).
 
-**Interactive visualization** - Open [`azure-networking-flowchart.html`](azure-networking-flowchart.html) in a browser for the full interactive experience: filter by Tier, Scenario, Requirement, Step, or OSI Layer; step through the SCN-009 and SCN-010 walkthroughs; and view the STEP-080 Security Operations detail in [Section 4.3](#43-step-080-security-operations---detailed-view).
+**Interactive visualization** - View [`azure-networking-flowchart.html`](https://baskar-commits.github.io/globalparks-cloud-network-security/azure-networking-flowchart.html) online (GitHub Pages), or open the file locally in any browser. Filter by Tier, Scenario, Requirement, Step, or OSI Layer; step through the SCN-009 and SCN-010 walkthroughs; and view the STEP-080 Security Operations detail in [Section 4.3](#43-step-080-security-operations---detailed-view).
 
 **Diagram source and rendering** - The complete Mermaid source is in [Appendix A](#appendix-a---architecture-diagram-mermaid-source). GitHub renders it automatically when this file is viewed online. It can also be pasted into the [Mermaid Live Editor](https://mermaid.live) to export a standalone PNG or SVG.
 

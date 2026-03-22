@@ -9,6 +9,15 @@ Detailed Design Document (DDD) for the GlobalParks platform - a multi-regional, 
 | [`DESIGN.md`](DESIGN.md) | The full Detailed Design Document - scenarios, requirements, architecture walkthrough, decision records, and traceability matrix |
 | [`azure-networking-flowchart.html`](azure-networking-flowchart.html) | Interactive architecture visualization - open in a browser |
 
+## Interactive visualization (browser links)
+
+| Option | Link |
+|---|---|
+| **GitHub Pages** (recommended) | [azure-networking-flowchart.html](https://baskar-commits.github.io/globalparks-cloud-network-security/azure-networking-flowchart.html) — enable in repo Settings → Pages → main branch |
+| **HTML Preview** (works immediately) | [htmlpreview.github.io link](https://htmlpreview.github.io/?https://github.com/BASKAR-Commits/globalparks-cloud-network-security/blob/main/azure-networking-flowchart.html) |
+
+---
+
 ## How to read the design document
 
 Open [`DESIGN.md`](DESIGN.md) directly in GitHub. The document renders with full Mermaid diagram support - the Security Operations diagram in Section 4.3 and the N-Tier diagram in Appendix A display automatically.
