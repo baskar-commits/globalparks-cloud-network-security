@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GlobalParks - Cloud Network Security Architecture</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: false, theme: 'default', flowchart: { curve: 'basis' } });
+        window.__mermaid = mermaid;
+        document.addEventListener('DOMContentLoaded', async () => {
+            try { await mermaid.run({ querySelector: '.mermaid' }); }
+            catch (e) { console.error('Mermaid render error:', e); }
+            window.dispatchEvent(new Event('diagrams-ready'));
+        });
+    </script>
+    <style>
+        :root {
+            --bg:         #0d1117;
+            --surface:    #161b22;
+            --border:     #30363d;
+            --text:       #e6edf3;
+            --muted:      #8b949e;
+            --accent:     #58a6ff;
+            --accent-dim: rgba(88,166,255,0.12);
+            --danger:     #f85149;
+            --green:      #3fb950;
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+        /* ─── sticky header (filter bar + info banner combined) ─── */
+        .sticky-top {
+            position: sticky; top: 0; z-index: 300;
+            background: var(--surface); border-bottom: 1px solid var(--border);
+        }
+        .filter-bar { padding: 0.55rem 1.5rem 0; }
+        .filter-inner { max-width: 1500px; margin: 0 auto; display: flex; flex-direction: column; gap: 0.45rem; }
+        .filter-top { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
+        .filter-label { font-size:.68rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+
+        .tab-group { display:flex; gap:0.25rem; flex-wrap:wrap; }
+        .tab { background:transparent; border:1px solid var(--border); color:var(--muted); padding:.22rem .8rem; border-radius:6px; font-size:.76rem; cursor:pointer; transition:all .15s; }
+        .tab:hover  { background:#21262d; color:var(--text); }
+        .tab.active { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); font-weight:600; }
+        .tab.walk   { border-color:#3fb950; }
+        .tab.walk.active { background:rgba(63,185,80,.12); border-color:var(--green); color:var(--green); }
+
+        .clear-btn { margin-left:auto; background:transparent; border:1px solid #6e3630; color:var(--danger); padding:.2rem .65rem; border-radius:6px; font-size:.72rem; cursor:pointer; display:none; align-items:center; gap:.3rem; transition:background .15s; }
+        .clear-btn.show { display:inline-flex; }
+        .clear-btn:hover { background:rgba(248,81,73,.1); }
+
+        /* pills */
+        .pill-group { display:none; flex-wrap:wrap; gap:0.28rem; padding-bottom:0.45rem; }
+        .pill-group.active { display:flex; }
+        .pill { background:#21262d; border:1px solid var(--border); color:var(--text); padding:.16rem .6rem; border-radius:999px; font-size:.72rem; cursor:pointer; transition:all .15s; white-space:nowrap; }
+        .pill:hover { background:#2d333b; border-color:var(--accent); color:var(--accent); }
+        .pill.sel   { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); font-weight:600; }
+        .pill[data-osi="L7"] { border-color:#8957e5; } .pill[data-osi="L6"] { border-color:#3fb950; }
+        .pill[data-osi="L5"] { border-color:#d29922; } .pill[data-osi="L4"] { border-color:#f78166; }
+        .pill[data-osi="L3"] { border-color:#58a6ff; } .pill[data-osi="L2"] { border-color:#8b949e; }
+        .pill[data-osi="L1"] { border-color:#6e7681; }
+        .pill.walk-pill { border-color:var(--green); }
+        .pill.walk-pill:hover { color:var(--green); border-color:var(--green); }
+        .pill.walk-pill.sel { background:rgba(63,185,80,.12); border-color:var(--green); color:var(--green); }
+
+        /* ─── info banner (inside sticky header) ─── */
+        .info-banner {
+            display:none; gap:.7rem; align-items:flex-start;
+            background:linear-gradient(135deg,rgba(88,166,255,.08),rgba(63,185,80,.05));
+            border-top:1px solid rgba(88,166,255,.18);
+            padding:.6rem 1.5rem;
+        }
+        .info-banner.show { display:flex; max-width:100%; }
+        .info-badge { background:var(--accent); color:#0d1117; font-size:.65rem; font-weight:800; letter-spacing:.04em; padding:.14rem .48rem; border-radius:4px; white-space:nowrap; margin-top:2px; flex-shrink:0; }
+        .info-badge.green { background:var(--green); }
+        .info-body { flex:1; min-width:0; display:flex; flex-wrap:wrap; gap:.4rem 1.5rem; align-items:baseline; }
+        .info-subtitle { font-size:.82rem; font-weight:600; white-space:nowrap; }
+        .info-desc     { font-size:.76rem; color:var(--muted); line-height:1.5; flex:1; min-width:200px; }
+        .info-links    { display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; }
+        .info-link { font-size:.68rem; color:var(--accent); border:1px solid rgba(88,166,255,.28); padding:.1rem .45rem; border-radius:4px; text-decoration:none; cursor:pointer; transition:background .15s; white-space:nowrap; }
+        .info-link:hover { background:var(--accent-dim); }
+
+        /* ─── walkthrough controls ─── */
+        .walk-controls {
+            display:none; gap:.5rem; align-items:center; flex-wrap:wrap;
+            background:rgba(63,185,80,.06); border-top:1px solid rgba(63,185,80,.2);
+            padding:.5rem 1.5rem;
+        }
+        .walk-controls.show { display:flex; }
+        .walk-progress { font-size:.72rem; color:var(--green); font-weight:600; white-space:nowrap; min-width:80px; }
+        .walk-step-title { font-size:.8rem; font-weight:600; flex:1; }
+        .walk-step-desc  { font-size:.74rem; color:var(--muted); flex:2; min-width:200px; line-height:1.45; }
+        .wbtn { background:transparent; border:1px solid var(--green); color:var(--green); padding:.22rem .75rem; border-radius:6px; font-size:.76rem; cursor:pointer; transition:all .15s; white-space:nowrap; }
+        .wbtn:hover { background:rgba(63,185,80,.12); }
+        .wbtn:disabled { opacity:.3; cursor:default; }
+        .wbtn.exit { border-color:var(--border); color:var(--muted); margin-left:auto; }
+        .wbtn.exit:hover { background:#21262d; color:var(--text); }
+
+        /* ─── page body ─── */
+        .page-wrap { max-width:1500px; margin:0 auto; padding:1.1rem 1.5rem 0; }
+        .page-header h1 { font-size:1.25rem; font-weight:700; color:var(--accent); margin-bottom:.2rem; }
+        .page-header p  { font-size:.76rem; color:var(--muted); }
+
+        /* ─── diagram cards ─── */
+        .content-area { max-width:1500px; margin:0 auto; padding:0 1.5rem 2rem; display:flex; flex-direction:column; gap:1.2rem; margin-top:1rem; }
+        .diagram-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+        .card-header { padding:.6rem 1.1rem; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+        .card-tag { font-size:.6rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; background:#21262d; border:1px solid var(--border); color:var(--muted); padding:.1rem .38rem; border-radius:4px; }
+        .card-title { font-size:.86rem; font-weight:600; }
+        .card-meta  { margin-left:auto; font-size:.7rem; color:var(--muted); }
+        .diagram-wrap { background:#fff; padding:1.75rem; overflow-x:auto; }
+        .diagram-wrap svg { overflow:visible; }
+        .mermaid { display:flex; justify-content:center; }
+
+        svg g.node, svg g.cluster, svg path.flowchart-link, svg g.edgeLabel { transition: opacity .22s ease; }
+
+        /* ─── back to top ─── */
+        .back-top { position:fixed; bottom:1.4rem; right:1.4rem; z-index:400; background:var(--accent); color:#0d1117; border:none; border-radius:50%; width:2.3rem; height:2.3rem; font-size:1.2rem; cursor:pointer; display:none; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(88,166,255,.4); transition:opacity .2s,transform .2s; }
+        .back-top.show { display:flex; }
+        .back-top:hover { transform:translateY(-2px); }
+    </style>
+</head>
+<body>
+
+<!-- ═══ STICKY TOP (filter bar + info banner + walk controls) ═══ -->
+<div class="sticky-top" id="sticky-top">
+    <div class="filter-bar">
+        <div class="filter-inner">
+            <div class="filter-top">
+                <span class="filter-label">Filter&nbsp;by:</span>
+                <div class="tab-group">
+                    <button class="tab active" onclick="switchTab('tier',this)">Tier</button>
+                    <button class="tab"        onclick="switchTab('scn', this)">Scenario (SCN)</button>
+                    <button class="tab"        onclick="switchTab('req', this)">Requirement (REQ)</button>
+                    <button class="tab"        onclick="switchTab('step',this)">Step (STEP)</button>
+                    <button class="tab"        onclick="switchTab('osi', this)">OSI Layer</button>
+                    <button class="tab walk"   onclick="switchTab('walk',this)">&#9654; Walkthrough</button>
+                    <button class="tab"        onclick="clearFilter()">Show All</button>
+                </div>
+                <button class="clear-btn" id="clear-btn" onclick="clearFilter()">&#10005;&nbsp;Clear</button>
+            </div>
+            <div id="pills-tier" class="pill-group active"></div>
+            <div id="pills-scn"  class="pill-group"></div>
+            <div id="pills-req"  class="pill-group"></div>
+            <div id="pills-step" class="pill-group"></div>
+            <div id="pills-osi"  class="pill-group"></div>
+            <div id="pills-walk" class="pill-group"></div>
+        </div>
+    </div>
+
+    <!-- info banner - stays visible when scrolling -->
+    <div class="info-banner" id="info-banner">
+        <span class="info-badge" id="info-badge"></span>
+        <div class="info-body">
+            <div class="info-subtitle" id="info-subtitle"></div>
+            <div class="info-desc"     id="info-desc"></div>
+            <div class="info-links"    id="info-links"></div>
+        </div>
+    </div>
+
+    <!-- walkthrough step controls -->
+    <div class="walk-controls" id="walk-controls">
+        <span class="walk-progress" id="walk-progress">Step 1 of 6</span>
+        <span class="walk-step-title" id="walk-step-title"></span>
+        <span class="walk-step-desc"  id="walk-step-desc"></span>
+        <button class="wbtn" id="walk-prev" onclick="walkStep(-1)">&#8592; Prev</button>
+        <button class="wbtn" id="walk-next" onclick="walkStep(+1)">Next &#8594;</button>
+        <button class="wbtn exit" onclick="clearFilter()">&#10005; Exit</button>
+    </div>
+</div>
+
+<!-- ═══ PAGE HEADER ═══ -->
+<div class="page-wrap" id="page-top">
+    <div class="page-header">
+        <h1>GlobalParks &#8212; Cloud Network Security Architecture</h1>
+        <p>DESIGN.md&nbsp;v0.6&nbsp;&nbsp;&#183;&nbsp;&nbsp;Filter highlights nodes across both diagrams&nbsp;&nbsp;&#183;&nbsp;&nbsp;&#9654;&nbsp;Walkthrough traces scenarios step by step&nbsp;&nbsp;&#183;&nbsp;&nbsp;Press <kbd>Esc</kbd> to reset</p>
+    </div>
+</div>
+
+<!-- ═══ DIAGRAMS ═══ -->
+<div class="content-area">
+    <div class="diagram-card" id="section41">
+        <div class="card-header">
+            <span class="card-tag">Section 4.1</span>
+            <span class="card-title">N-Tier Architecture &mdash; 8 Tiers &amp; 24 Spoke VNets with OSI Layer Mapping</span>
+            <span class="card-meta">Horizontal bands = tiers &nbsp;|&nbsp; Vertical arrows = traffic flow</span>
+        </div>
+        <div class="diagram-wrap">
+            <pre class="mermaid">
+flowchart TB
+    subgraph T0["Tier 0 - STEP-010 - External Users and Devices"]
+        direction LR
+        VISITOR["B2C Visitors\nPublic internet"]
+        CORPUSER["Park Administrators\nCorporate network only"]
+        RANGER["Park Rangers\nField offices and park sites"]
+    end
+    subgraph T1["Tier 1 - STEP-030 - Internet Edge (OSI L3-L7) - B2C path only - bypasses VWAN"]
+        direction LR
+        AFD["Azure Front Door Premium\nGeo-routing to nearest Spoke  REQ-1.1"]
+        WAF["Azure WAF\nOWASP Top 10, SQLi, XSS  REQ-1.3"]
+        DDOS["DDoS Protection Standard\nVolume attack mitigation  REQ-1.2"]
+    end
+    subgraph T2["Tier 2 - STEP-020 - Identity and Access (OSI L5-L7)"]
+        direction LR
+        B2CID["Entra External ID (B2C)\nSocial login  REQ-2.1"]
+        ADMINID["Entra ID + Conditional Access\nRisk-based MFA or block  REQ-2.2"]
+    end
+    subgraph T3["Tier 3 - STEP-040 and STEP-041 - Private Connectivity Only (OSI L1-L3)"]
+        direction LR
+        ER["Azure ExpressRoute\nDedicated private circuit  L1/L2\nCorp admin primary"]
+        VWAN["12x Azure Virtual WAN\nOne per region  L3\nRouting Intent - all private traffic to Hub FW\nAdmin and Ranger paths only - not B2C"]
+        VPNS2S["VPN Gateway S2S\nIPSec site-to-site  L3\nCorp admin backup"]
+        VPNP2S["VPN Gateway P2S\nIPSec per-device  L3\nRanger field and park access"]
+    end
+    subgraph T4["Tier 4 - STEP-050 - Hub VNet (12 total) - Convergence Point for ALL traffic (OSI L3-L7)"]
+        direction LR
+        AZFW["2x Azure Firewall Premium per region - 24 total\nPublic interface receives B2C from Front Door\nIDPS and TLS inspection  L7\nPort and protocol enforcement  L4\nRouting Intent - mandatory next hop for T3 private traffic  L3\nREQ-4.1"]
+    end
+    subgraph T5A["Spoke VNet 1 of 24 - STEP-060A - B2C Public Spoke (OSI L4-L7)"]
+        direction LR
+        AGW["App Gateway + WAF v2\nURL routing and WAF  L7  REQ-1.3\nTLS termination  L6\nB2C public traffic"]
+        WEBNSG["NSG - Public Web Subnet\nAllow App Gateway only  L4\nREQ-3.1"]
+        APPSVR["B2C App Servers\nPublic-facing workloads"]
+    end
+    subgraph T5B["Spoke VNet 2 of 24 - STEP-060B - Admin and Ranger Private Spoke (OSI L4-L7)"]
+        direction LR
+        ADMINAGW["App Gateway + WAF v2 (Internal)\nNo public IP - Hub FW access only\nURL routing and WAF  L7  REQ-1.3\nTLS termination  L6\nAdmin and Ranger traffic"]
+        ADMINNSG["NSG - Internal App Subnet\nAllow Internal AGW only  L4\nREQ-3.1"]
+        ADMINSVR["Admin and Ranger App Servers\nInternal workloads"]
+    end
+    subgraph T6["Tier 6 - STEP-070 - Regional Data Tier x12 - Private Endpoints per Spoke (OSI L3-L4)"]
+        direction LR
+        DATANSG["NSG - Data Subnet\nAllow Web Tier ASG only  L4\nREQ-3.2"]
+        PE["Private Endpoints\nOne per Spoke VNet - Private IP only  L3\nREQ-3.3"]
+        DB["Azure SQL - Metadata\nCosmos DB - Documents\nMulti-region write - geo-replication"]
+        T6EU["EU Region copy\n(same structure)"]
+        T6APAC["APAC Region copy\n(same structure)"]
+    end
+    subgraph T7["Tier 7 - STEP-080 - Security Operations (OSI L3-L7 across all tiers)"]
+        direction LR
+        MDFC["Defender for Cloud\nCSPM and workload protection\nREQ-4.2"]
+        SENTINEL["Microsoft Sentinel\nSIEM and SOAR\nREQ-4.3"]
+        AZMON["Azure Monitor\nLog Analytics"]
+        AZPOL["Azure Policy + GitOps\nPreventive controls"]
+    end
+    subgraph T8["Tier 8 - STEP-090 - On-premises and Hybrid Systems"]
+        direction LR
+        LEGACYSYS["Legacy Park Systems\nTicketing and reservations"]
+        IOTSENS["IoT Sensors\nWildlife and visitor monitoring"]
+        GOVAGENCY["Government Agency Systems\nPark authority integration"]
+    end
+
+    VISITOR -->|"SCN-001 SCN-009 SCN-010 Social sign-in"| B2CID
+    CORPUSER -->|"SCN-002 Corporate identity"| ADMINID
+    RANGER -->|"SCN-002 Corporate identity"| ADMINID
+
+    B2CID --> AFD
+    AFD --> WAF
+    WAF --> DDOS
+    DDOS -->|"SCN-001 SCN-003 SCN-009 SCN-010 - via Microsoft backbone to Hub FW public IP"| AZFW
+
+    ADMINID -->|"Primary ExpressRoute"| ER
+    ADMINID -->|"Backup S2S VPN"| VPNS2S
+    ADMINID -->|"Ranger field access"| VPNP2S
+    ER --> VWAN
+    VPNS2S --> VWAN
+    VPNP2S --> VWAN
+    VWAN -->|"All privileged traffic - Routing Intent"| AZFW
+
+    AZFW -->|"SCN-001 SCN-009 SCN-010 B2C to Spoke VNet 1"| AGW
+    AGW --> WEBNSG
+    WEBNSG --> APPSVR
+    AZFW -->|"SCN-002 Admin and Ranger to Spoke VNet 2"| ADMINAGW
+    ADMINAGW --> ADMINNSG
+    ADMINNSG --> ADMINSVR
+
+    APPSVR -->|"REQ-3.1 Web to Data"| DATANSG
+    ADMINSVR -->|"REQ-3.1 App to Data"| DATANSG
+    DATANSG -->|"REQ-3.2 ASG-gated"| PE
+    PE -->|"REQ-3.3 Private IP only"| DB
+
+    LEGACYSYS -->|"SCN-007 ExpressRoute"| VWAN
+    IOTSENS -->|"SCN-006 IoT Hub"| AZFW
+    GOVAGENCY -->|"SCN-008 ExpressRoute peering"| VWAN
+
+    AZFW -.->|"Firewall logs"| AZMON
+    AGW -.->|"WAF logs"| AZMON
+    ADMINAGW -.->|"WAF logs"| AZMON
+    WEBNSG -.->|"NSG flow logs"| AZMON
+    DATANSG -.->|"NSG flow logs"| AZMON
+    AZMON -->|"All telemetry REQ-4.3"| SENTINEL
+    MDFC -->|"Posture alerts REQ-4.2"| SENTINEL
+            </pre>
+        </div>
+    </div>
+
+    <div class="diagram-card" id="section43">
+        <div class="card-header">
+            <span class="card-tag">Section 4.3</span>
+            <span class="card-title">STEP-080 &mdash; Security Operations Detail</span>
+            <span class="card-meta">Signal sources &rarr; collection &rarr; detection &rarr; prevention &rarr; automated response</span>
+        </div>
+        <div class="diagram-wrap">
+            <pre class="mermaid">
+flowchart LR
+    subgraph INPUTS["Signal Sources - All Tiers"]
+        direction TB
+        FWLOG["Azure Firewall\nIDPS alerts and traffic logs"]
+        WAFLOG["WAF Block Events\nFront Door and App Gateway"]
+        NSGLOG["NSG Flow Logs\nAll subnets"]
+        DEFLOG["Defender for SQL\nQuery anomalies"]
+        IDLOG["Entra ID Protection\nSign-in risk signals"]
+        SRVLOG["Defender for Servers\nVulnerability findings"]
+    end
+    subgraph COLLECT["Collection Layer"]
+        MON["Azure Monitor\nLog Analytics Workspace\nKQL queryable  REQ-4.3"]
+    end
+    subgraph POSTURE["Posture Management"]
+        MDFC2["Defender for Cloud\nCSPM - Security Score\nPCI-DSS, GDPR, ISO 27001, NIST\nREQ-4.2"]
+    end
+    subgraph DETECT["Detection and Correlation"]
+        SENT2["Microsoft Sentinel\nSIEM - AI Fusion detection\nCustom analytics rules\nREQ-4.3"]
+    end
+    subgraph PREVENT["Preventive Controls"]
+        POLICY["Azure Policy\nDeployment-time enforcement"]
+        GITOPS["GitOps Pipeline\nFirewall Policy as Code\nPR-gated rule changes"]
+    end
+    subgraph RESPOND["Automated Response - Playbooks"]
+        PLAYBOOK["Logic App Playbooks\nSOAR automation"]
+        BLOCKIP["Block IP at Firewall"]
+        DISABLE["Disable Entra ID Account"]
+        ISOLATE["Isolate VM or Subnet"]
+        ITSM["ITSM Ticket\nSOC escalation"]
+    end
+    FWLOG --> MON
+    WAFLOG --> MON
+    NSGLOG --> MON
+    DEFLOG --> MON
+    IDLOG --> MON
+    SRVLOG --> MON
+    MON --> SENT2
+    MON --> MDFC2
+    MDFC2 -->|"Posture alerts"| SENT2
+    SENT2 --> PLAYBOOK
+    PLAYBOOK --> BLOCKIP
+    PLAYBOOK --> DISABLE
+    PLAYBOOK --> ISOLATE
+    PLAYBOOK --> ITSM
+    GITOPS -.->|"Policy as code"| POLICY
+            </pre>
+        </div>
+    </div>
+</div>
+
+<button class="back-top" id="back-top" title="Back to top" onclick="scrollToTop()">&#8679;</button>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// WALKTHROUGH DATA
+// ─────────────────────────────────────────────────────────────────────────────
+const WALKS = {
+  'SCN-009': {
+    title: 'Sydney Visitor \u2192 Great Barrier Reef (Gold Coast)',
+    badge: 'SCN-009',
+    steps: [
+      { title: 'Sydney visitor opens GlobalParks', nodes: ['VISITOR'],
+        desc: 'B2C visitor in Sydney opens the GlobalParks app to book a campsite at Great Barrier Reef near Gold Coast. The request originates from the public internet - no corporate network or VPN involved.' },
+      { title: 'Social login via Entra External ID', nodes: ['B2CID'],
+        desc: 'Visitor authenticates using Google login via Microsoft Entra External ID (B2C). A session token is issued, valid for the B2C public Spoke VNet only. No Conditional Access evaluation - B2C users are not on the privileged path.' },
+      { title: 'Front Door PoP (Sydney) - WAF inspection', nodes: ['AFD','WAF','DDOS'],
+        desc: 'TCP handshake terminates at the Sydney/Melbourne Front Door PoP - NOT in California, NOT via VWAN. WAF enforces OWASP DRS. DDoS mitigation active at PoP. Front Door routes over Microsoft backbone to the Australia East Hub Firewall\'s public IP. VWAN (Tier 3) is not in this path - it handles only private ExpressRoute and VPN traffic.' },
+      { title: 'Australia East Hub Firewall (Tier 4)', nodes: ['AZFW'],
+        desc: 'One of the two Active-Active Hub Firewall instances in Australia East receives the session via its public interface. IDPS inspects the payload (58,000+ signatures). TLS is decrypted and re-encrypted. Session is clean - forwarded to the B2C Public Spoke VNet (Spoke VNet 1 of 24 for Australia East).' },
+      { title: 'B2C Spoke VNet - App Gateway + WAF v2', nodes: ['AGW','WEBNSG','APPSVR'],
+        desc: 'Public App Gateway in the Australia East B2C Spoke VNet receives the request. WAF v2 applies a second OWASP layer with custom reservation API rules. URL routing directs to the camping reservation backend pool. NSG permits only App Gateway source IPs to reach B2C app servers.' },
+      { title: 'Reservation written - APAC Data Tier (same region!)', nodes: ['DATANSG','PE','DB'],
+        desc: 'B2C app server writes the campsite reservation to Cosmos DB via Private Endpoint in Australia East - the same region as the visitor AND the park. Write is immediate. Cosmos DB replicates to all 11 other regions within the RPO window (15 min). Rangers at Gold Coast see the booking in real time. Sub-100ms end-to-end response for the visitor.' },
+      { title: 'Security Operations monitoring', nodes: ['AZMON','SENTINEL'],
+        desc: 'Reservation request and write operation logged in Azure Monitor (Log Analytics). Session telemetry streams to Sentinel. Defender for Cloud continuously assesses the APAC spoke posture. No anomalies detected - normal B2C reservation flow.' },
+    ]
+  },
+  'SCN-010': {
+    title: 'Sydney Visitor \u2192 Yosemite NP (California, USA)',
+    badge: 'SCN-010',
+    steps: [
+      { title: 'Same Sydney visitor - different park', nodes: ['VISITOR'],
+        desc: 'The same Sydney visitor now books a campsite at Yosemite National Park in California. The visitor is in Sydney (APAC); the park is in California (Americas). This is a cross-continental scenario - watch how the architecture handles it transparently.' },
+      { title: 'Google login - globally valid token', nodes: ['B2CID'],
+        desc: 'Same Google login via Entra External ID (B2C). The session token is globally valid across all 12 regional instances. Authentication itself does not care where the park is located.' },
+      { title: 'Front Door routes to nearest origin - still Australia East!', nodes: ['AFD','WAF','DDOS'],
+        desc: 'TCP handshake again terminates at the Sydney Front Door PoP. Front Door selects the nearest healthy origin: Australia East (NOT California). Front Door optimises for the visitor\'s network path, not the park\'s geography. WAF and DDoS inspection are identical to SCN-009. The visitor gets the same fast edge response regardless of which park they are booking.' },
+      { title: 'Australia East Hub Firewall - same path as SCN-009', nodes: ['AZFW'],
+        desc: 'The Australia East Hub Firewall receives the Yosemite reservation request identically to a Gold Coast reservation. The Hub Firewall has no awareness of which park the request is for - it sees an authenticated B2C session requesting the reservation API. IDPS inspection and TLS re-encryption are the same.' },
+      { title: 'Australia East B2C Spoke VNet - same path', nodes: ['AGW','WEBNSG','APPSVR'],
+        desc: 'The Australia East App Gateway and B2C Spoke VNet (Spoke VNet 1 of 24 for Australia East) process the Yosemite reservation request the same way as a Gold Coast request. URL routing sends it to the reservation backend pool. The application code knows this is a Yosemite booking - the infrastructure does not.' },
+      { title: 'Write to APAC Data Tier - Cosmos DB replicates to Americas', nodes: ['DATANSG','PE','DB'],
+        desc: 'The Yosemite reservation is written to the Australia East Cosmos DB instance via Private Endpoint - NOT to California. Cosmos DB multi-region write accepts the write at the nearest instance (Australia East) and asynchronously replicates it to the Americas West instance (where Yosemite park data is anchored) within seconds to minutes. A Yosemite ranger in California will see the booking once replication completes - well within the 15-min RPO. The visitor gets the same fast response as SCN-009.' },
+      { title: 'Security Operations - same monitoring, cross-region awareness', nodes: ['AZMON','SENTINEL'],
+        desc: 'Session logged in Azure Monitor (Australia East). Cosmos DB replication metadata provides visibility across regions. Sentinel has a global view of all 12 regional Log Analytics workspaces. No anomalies. Key architectural insight: the visitor experience is identical for SCN-009 and SCN-010 - only the data replication destination differs, handled transparently by Cosmos DB.' },
+    ]
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FILTER DATA
+// ─────────────────────────────────────────────────────────────────────────────
+const DIAG2_NODES = ['FWLOG','WAFLOG','NSGLOG','DEFLOG','IDLOG','SRVLOG',
+                     'MON','MDFC2','SENT2','POLICY','GITOPS',
+                     'PLAYBOOK','BLOCKIP','DISABLE','ISOLATE','ITSM'];
+
+const FD = {
+  tier: [
+    { id:'T0', label:'Tier 0', step:'STEP-010', subtitle:'External Users',
+      nodes:['VISITOR','CORPUSER','RANGER'],
+      desc:'Three external personas: B2C Visitors (public internet, social login), Park Administrators (corporate network, Entra ID + MFA), Park Rangers (field devices, P2S VPN + risk-based Conditional Access). Each follows a completely separate identity and connectivity path.' },
+    { id:'T1', label:'Tier 1', step:'STEP-030', subtitle:'Internet Edge – B2C only, bypasses VWAN',
+      nodes:['AFD','WAF','DDOS'],
+      desc:'B2C internet edge only - Admin/Ranger traffic does not use this tier. Front Door routes via anycast to the nearest PoP, then over the Microsoft backbone to the Hub Firewall\'s public IP. VWAN (Tier 3) is not in this path - it handles private ExpressRoute/VPN connections only. All three controls apply before any request enters an Azure VNet.' },
+    { id:'T2', label:'Tier 2', step:'STEP-020', subtitle:'Identity and Access',
+      nodes:['B2CID','ADMINID'],
+      desc:'Identity fork. B2C: Entra External ID social federation. Corporate: Entra ID + Conditional Access with MFA, device compliance, and for rangers, risk-based evaluation (High risk = hard block via Entra ID Protection; Medium risk = second MFA challenge).' },
+    { id:'T3', label:'Tier 3', step:'STEP-040/041', subtitle:'Private Connectivity – Admin and Ranger only',
+      nodes:['ER','VWAN','VPNS2S','VPNP2S'],
+      desc:'Private network connectivity only - B2C traffic does NOT use this tier. 12 separate VWAN instances (Option B, ADR-004). VWAN Routing Intent programmes all gateways (ExpressRoute, S2S VPN, P2S VPN) to use the Hub Firewall as mandatory next hop. No path from any gateway to any spoke bypasses the firewall.' },
+    { id:'T4', label:'Tier 4', step:'STEP-050', subtitle:'Hub VNet – Convergence of ALL traffic',
+      nodes:['AZFW'],
+      desc:'12 Hub VNets (one per region), each with 2x Azure Firewall Premium (Active-Active) = 24 firewall instances total. This is the ONLY convergence point for all traffic paths: B2C from Front Door (via public IP), Admin via ExpressRoute, Rangers via P2S VPN, on-premises via IoT Hub/ExpressRoute. VWAN Routing Intent makes this the de facto Tier 3 entry firewall as well.' },
+    { id:'T5A', label:'Tier 5A', step:'STEP-060A', subtitle:'Spoke VNet 1 of 24 – B2C Public',
+      nodes:['AGW','WEBNSG','APPSVR'],
+      desc:'12 B2C Public Spoke VNets (one per region). Public App Gateway + WAF v2 is the second WAF layer after Front Door. NSG restricts inbound to App Gateway source IPs only. ASG asg-b2c-web tags app servers for data tier access control. Completely isolated from the Admin/Ranger spoke.' },
+    { id:'T5B', label:'Tier 5B', step:'STEP-060B', subtitle:'Spoke VNet 2 of 24 – Admin/Ranger Private',
+      nodes:['ADMINAGW','ADMINNSG','ADMINSVR'],
+      desc:'12 Admin/Ranger Private Spoke VNets (one per region). Internal App Gateway (no public IP) provides a second WAF layer for privileged management API traffic - catches HTTP-layer attacks from compromised but authenticated admin devices. NSG restricts inbound to internal AGW source IPs only. Completely isolated from the B2C spoke.' },
+    { id:'T6', label:'Tier 6', step:'STEP-070', subtitle:'Data Tier x12 – one Private Endpoint per Spoke',
+      nodes:['DATANSG','PE','DB','T6EU','T6APAC'],
+      desc:'12 data tier instances. Each Spoke VNet has its own Private Endpoints to the same underlying Azure SQL and Cosmos DB instances (no public endpoint). Cosmos DB multi-region write enables any regional instance to accept writes - enabling the Sydney visitor to book Yosemite from the nearest APAC node. Replication delivers global consistency within the RPO window.' },
+    { id:'T7', label:'Tier 7', step:'STEP-080', subtitle:'Security Operations – all tiers',
+      nodes:['MDFC','SENTINEL','AZMON','AZPOL'], diag2All:true,
+      desc:'Cross-cutting security operations across all 12 regions. Azure Monitor centralises telemetry. Defender for Cloud provides CSPM. Sentinel provides AI Fusion detection and SOAR. See Section 4.3 diagram for the full signal-to-response flow.', scrollTo:'section43' },
+    { id:'T8', label:'Tier 8', step:'STEP-090', subtitle:'On-premises and Hybrid',
+      nodes:['LEGACYSYS','IOTSENS','GOVAGENCY'],
+      desc:'Hybrid integration: legacy systems via ExpressRoute (SCN-007), IoT sensors via IoT Hub through Hub Firewall (SCN-006), government agencies via ExpressRoute peering (SCN-008). All on-premises traffic enters exclusively via the Hub Firewall. Azure Arc extends cloud governance to on-premises workloads.' },
+  ],
+  scn: [
+    { id:'SCN-001', subtitle:'Public Visitor Web Access',
+      nodes:['VISITOR','B2CID','AFD','WAF','DDOS','AZFW','AGW','WEBNSG','APPSVR','DATANSG','PE','DB'],
+      desc:'B2C visitor purchases a park ticket. Path: social login → Front Door anycast (bypasses VWAN) → Hub Firewall (public IP entry) → B2C Spoke VNet (App Gateway + WAF v2) → data tier via Private Endpoint.' },
+    { id:'SCN-002', subtitle:'Corporate Admin and Ranger Access',
+      nodes:['CORPUSER','RANGER','ADMINID','ER','VPNS2S','VPNP2S','VWAN','AZFW','ADMINAGW','ADMINNSG','ADMINSVR','DATANSG','PE','DB'],
+      desc:'Admins via ExpressRoute/S2S VPN → VWAN → Hub Firewall. Rangers via P2S VPN → VWAN → Hub Firewall. Both: Entra ID + MFA + risk evaluation → Hub Firewall → internal App Gateway WAF v2 → Admin/Ranger Spoke VNet → data tier.' },
+    { id:'SCN-003', subtitle:'Internet Threat Inspection',
+      nodes:['AFD','WAF','DDOS','AZFW'],
+      desc:'Multi-layer inspection for B2C internet traffic: DDoS at PoP, OWASP WAF at Front Door, IDPS + TLS inspection at Hub Firewall. Admin/Ranger traffic (via VWAN) is also inspected at the Hub Firewall but follows the private path.' },
+    { id:'SCN-004', subtitle:'Regulated Data Access Control',
+      nodes:['APPSVR','ADMINSVR','DATANSG','PE','DB'],
+      desc:'App servers reach the data tier only through NSG-enforced subnets with ASG tags. Private Endpoints - no public database endpoint. Meets PCI-DSS isolation and GDPR data residency requirements.' },
+    { id:'SCN-005', subtitle:'Security Monitoring and Response',
+      nodes:['AZFW','AGW','ADMINAGW','WEBNSG','DATANSG','AZMON','SENTINEL','MDFC'],
+      desc:'All network telemetry streams to Log Analytics. Sentinel correlates for multi-stage attack detection. Defender for Cloud assesses posture. Logic App playbooks automate responses.' },
+    { id:'SCN-006', subtitle:'IoT Sensor Integration',
+      nodes:['IOTSENS','AZFW'],
+      desc:'IoT sensors connect via Azure IoT Hub using X.509 device certificates. Telemetry routes through Hub Firewall before reaching analytics workloads in the spoke.' },
+    { id:'SCN-007', subtitle:'Legacy System Integration',
+      nodes:['LEGACYSYS','VWAN'],
+      desc:'Legacy park systems connect via ExpressRoute into VWAN. Traffic flows through Hub Firewall. Azure Data Factory orchestrates ETL pipelines.' },
+    { id:'SCN-008', subtitle:'Government Agency Integration',
+      nodes:['GOVAGENCY','VWAN','AZFW','ADMINAGW','ADMINNSG'],
+      desc:'Government agencies via ExpressRoute peering into VWAN. Hub Firewall permits agency IPs to internal App Gateway only. WAF v2 inspects. URL routing directs to read-only API backend only.' },
+    { id:'SCN-009', subtitle:'Sydney Visitor \u2192 Great Barrier Reef (same region)',
+      nodes:['VISITOR','B2CID','AFD','WAF','DDOS','AZFW','AGW','WEBNSG','APPSVR','DATANSG','PE','DB','AZMON','SENTINEL'],
+      desc:'Sydney visitor books campsite at Great Barrier Reef (Gold Coast). Visitor and park in same region (Australia East). Front Door routes to APAC PoP \u2192 Hub Firewall (public IP, no VWAN) \u2192 B2C Spoke VNet \u2192 Cosmos DB. Transaction stays in Australia East. Sub-100ms response. Use \u25BA Walkthrough tab for step-by-step trace.' },
+    { id:'SCN-010', subtitle:'Sydney Visitor \u2192 Yosemite NP (cross-region)',
+      nodes:['VISITOR','B2CID','AFD','WAF','DDOS','AZFW','AGW','WEBNSG','APPSVR','DATANSG','PE','DB','AZMON','SENTINEL'],
+      desc:'Sydney visitor books Yosemite (California). Front Door still routes to APAC (nearest to visitor, not to park). Same Australia East path as SCN-009. Write goes to APAC Cosmos DB, which geo-replicates to Americas. Visitor experience is identical to SCN-009. Use \u25BA Walkthrough tab for step-by-step comparison.' },
+  ],
+  req: [
+    { id:'REQ-1.1', subtitle:'Global Geo-routing', nodes:['AFD'], desc:'Azure Front Door Premium anycast routing to nearest PoP for all 12 global regions. CDN caching reduces origin load.' },
+    { id:'REQ-1.2', subtitle:'DDoS Protection', nodes:['DDOS'], desc:'Azure DDoS Protection Standard always-on volumetric mitigation at the PoP/VNet level.' },
+    { id:'REQ-1.3', subtitle:'WAF – OWASP at 3 points', nodes:['WAF','AGW','ADMINAGW'], desc:'Three WAF inspection layers: Front Door (global, B2C), public App Gateway WAF v2 (B2C Spoke VNet), internal App Gateway WAF v2 (Admin/Ranger Spoke VNet). Each independently tuned to its traffic type.' },
+    { id:'REQ-2.1', subtitle:'B2C Social Login', nodes:['B2CID'], desc:'Entra External ID for social identity federation (Google, Facebook, Microsoft Account) for public visitors.' },
+    { id:'REQ-2.2', subtitle:'Corporate MFA + Conditional Access', nodes:['ADMINID'], desc:'Entra ID Conditional Access: MFA, device compliance, corporate network (admins). Rangers: MFA + risk-based evaluation via Entra ID Protection (High risk = hard block; Medium = second MFA).' },
+    { id:'REQ-3.1', subtitle:'NSG Subnet Micro-segmentation', nodes:['WEBNSG','ADMINAGW','ADMINNSG'], desc:'NSGs at each subnet: public web subnet allows only App Gateway; internal AGW subnet allows only Hub Firewall; internal app subnet allows only internal AGW. ASGs provide workload tagging.' },
+    { id:'REQ-3.2', subtitle:'ASG-gated Data Access', nodes:['DATANSG'], desc:'Data subnet NSG allows inbound exclusively from ASGs tagged to authorised app tier servers only.' },
+    { id:'REQ-3.3', subtitle:'Private Endpoints – Zero Public Exposure', nodes:['PE'], desc:'Azure Private Endpoints: Azure SQL and Cosmos DB exposed on private IPs only. Public access disabled. Each Spoke VNet has its own Private Endpoint. Private DNS Zones resolve FQDNs internally.' },
+    { id:'REQ-4.1', subtitle:'Hub Firewall with IDPS', nodes:['AZFW'], desc:'24 Azure Firewall Premium instances (2 per region). IDPS (58,000+ signatures) + TLS inspection. VWAN Routing Intent makes this the mandatory entry point for all private traffic. Public IP accepts B2C from Front Door.' },
+    { id:'REQ-4.2', subtitle:'Cloud Security Posture Management', nodes:['MDFC','MDFC2'], desc:'Defender for Cloud: CSPM, Secure Score, compliance dashboards (PCI-DSS, GDPR, ISO 27001, NIST), workload protection.' },
+    { id:'REQ-4.3', subtitle:'SIEM and Centralised Telemetry', nodes:['SENTINEL','AZMON','SENT2','MON'], desc:'Sentinel + Log Analytics KQL. AI Fusion detection. Custom analytics rules, UEBA, SOAR playbooks, ITSM integration.' },
+  ],
+  step: [
+    { id:'STEP-010', subtitle:'User Personas', tierId:'T0', nodes:['VISITOR','CORPUSER','RANGER'], desc:'Three personas: B2C Visitors, Park Administrators, Park Rangers. Each has a distinct identity system, connectivity path, and trust level.' },
+    { id:'STEP-020', subtitle:'Identity and Conditional Access', tierId:'T2', nodes:['B2CID','ADMINID'], desc:'Entra External ID for B2C. Entra ID + Conditional Access for corporate. Risk-based policy for rangers: High risk = hard block, Medium = second MFA challenge (Entra ID Protection).' },
+    { id:'STEP-030', subtitle:'Internet Edge – bypasses VWAN', tierId:'T1', nodes:['AFD','WAF','DDOS'], desc:'B2C-only tier. Front Door PoP → WAF → DDoS → Hub Firewall public IP via Microsoft backbone. VWAN is NOT in this path - it is the private network gateway (ExpressRoute/VPN). Both paths converge only at Tier 4 Hub Firewall.' },
+    { id:'STEP-040', subtitle:'Corporate Admin Connectivity', tierId:'T3', nodes:['ER','VPNS2S','VWAN'], desc:'ExpressRoute (primary) + S2S VPN (backup) for admins. Both → VWAN → Hub Firewall via Routing Intent. 12 separate VWAN instances (Option B, ADR-004).' },
+    { id:'STEP-041', subtitle:'Ranger Field Connectivity', tierId:'T3', nodes:['VPNP2S','VWAN'], desc:'P2S VPN per-device for rangers. Device certs + Entra ID MFA. → VWAN → Hub Firewall via Routing Intent. Route profile restricts rangers to Admin/Ranger Spoke VNet only.' },
+    { id:'STEP-050', subtitle:'Hub VNet – ALL traffic converges here', tierId:'T4', nodes:['AZFW'], desc:'12 Hub VNets, 24 Firewall instances. Public interface accepts B2C from Front Door. VWAN Routing Intent routes private traffic here. IDPS + TLS inspection for ALL sessions regardless of origin.' },
+    { id:'STEP-060A', subtitle:'Spoke VNet 1 – B2C Public Spoke', tierId:'T5A', nodes:['AGW','WEBNSG','APPSVR'], desc:'12 B2C Public Spoke VNets. App Gateway WAF v2 as second inspection layer. NSG: App Gateway IPs only. ASG asg-b2c-web for data tier access control.' },
+    { id:'STEP-060B', subtitle:'Spoke VNet 2 – Admin/Ranger Private Spoke', tierId:'T5B', nodes:['ADMINAGW','ADMINNSG','ADMINSVR'], desc:'12 Admin/Ranger Private Spoke VNets. Internal App Gateway (no public IP) as second WAF layer for management API traffic. NSG: internal AGW IPs only. Fully isolated from B2C spoke.' },
+    { id:'STEP-070', subtitle:'Regional Data Tier', tierId:'T6', nodes:['DATANSG','PE','DB','T6EU','T6APAC'], desc:'12 data tier instances. Each spoke has own Private Endpoints. Cosmos DB multi-region write enables nearest-region writes with global replication (SCN-009, SCN-010). RTO 5 min / RPO 15 min.' },
+    { id:'STEP-080', subtitle:'Security Operations', tierId:'T7', nodes:['MDFC','SENTINEL','AZMON','AZPOL'], diag2All:true, desc:'Cross-cutting SecOps. Azure Monitor, Defender for Cloud, Sentinel, Azure Policy + GitOps. See Section 4.3 for the complete signal-to-response diagram.', scrollTo:'section43' },
+    { id:'STEP-090', subtitle:'On-premises and Hybrid', tierId:'T8', nodes:['LEGACYSYS','IOTSENS','GOVAGENCY'], desc:'Legacy systems via ExpressRoute, IoT via IoT Hub, government agencies via ExpressRoute peering. Azure Arc extends cloud governance.' },
+  ],
+  osi: [
+    { id:'L7', label:'L7 – Application', subtitle:'Application layer controls',
+      nodes:['AFD','WAF','B2CID','ADMINID','AZFW','AGW','ADMINAGW','APPSVR','ADMINSVR','MDFC','SENTINEL','AZMON','AZPOL','FWLOG','WAFLOG','NSGLOG','DEFLOG','IDLOG','SRVLOG','MON','MDFC2','SENT2','POLICY','GITOPS','PLAYBOOK','BLOCKIP','DISABLE','ISOLATE','ITSM'],
+      desc:'L7 (Application): Front Door HTTP routing, WAF OWASP inspection, Entra ID authentication, Azure Firewall IDPS + TLS decryption, both App Gateways URL routing, App Servers, and all Security Operations nodes. Largest control surface.' },
+    { id:'L6', label:'L6 – Presentation', subtitle:'TLS termination and encryption',
+      nodes:['AGW','ADMINAGW','AZFW'],
+      desc:'L6 (Presentation): TLS terminated at Hub Firewall (for inline decryption/inspection), public App Gateway (B2C HTTPS), and internal App Gateway (admin/ranger HTTPS). Each termination point is a WAF or inspection boundary.' },
+    { id:'L5', label:'L5 – Session', subtitle:'Session and identity token management',
+      nodes:['B2CID','ADMINID'],
+      desc:'L5 (Session): Entra External ID and Entra ID establish sessions, issue tokens, and manage session lifetime and re-authentication. Conditional Access evaluates session context at establishment.' },
+    { id:'L4', label:'L4 – Transport', subtitle:'Port and protocol enforcement',
+      nodes:['AZFW','AGW','ADMINAGW','WEBNSG','ADMINNSG','DATANSG'],
+      desc:'L4 (Transport): Azure Firewall port/protocol enforcement. NSGs on all subnets enforce TCP/UDP rules. App Gateways enforce allowed HTTP methods. Together these define the platform\'s TCP/UDP perimeter.' },
+    { id:'L3', label:'L3 – Network', subtitle:'IP routing and network-layer controls',
+      nodes:['AZFW','VWAN','ER','VPNS2S','VPNP2S','DDOS','PE'],
+      desc:'L3 (Network): VWAN hub-and-spoke IP routing with Routing Intent. Azure Firewall threat intelligence IP blocking. ExpressRoute, S2S VPN, P2S VPN for private IP connectivity. DDoS Protection at L3/L4. Private Endpoints on private IPs only.' },
+    { id:'L2', label:'L2 – Data Link', subtitle:'Layer 2 circuit and VLAN controls',
+      nodes:['ER'],
+      desc:'L2 (Data Link): ExpressRoute uses dedicated VLAN-based BGP peering circuits. Azure software-defined network abstracts L2 from tenants - no VLAN hopping, no ARP poisoning exposure.' },
+    { id:'L1', label:'L1 – Physical', subtitle:'Physical infrastructure security',
+      nodes:['ER'],
+      desc:'L1 (Physical): Azure datacentres ISO 27001-certified. ExpressRoute uses dedicated fibre circuits not shared with other customers. Microsoft global backbone provides physical path isolation.' },
+  ],
+  walk: []  // populated from WALKS below
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SVG INDEX
+// ─────────────────────────────────────────────────────────────────────────────
+let IDX  = { d1: null, d2: null };
+let CURR = null;
+let WALK_STATE = null; // { id, stepIdx }
+
+function buildIdx(svg) {
+    const nodes = {};
+    svg.querySelectorAll('g.node').forEach(el => {
+        const m = el.id.match(/[^-]+-([A-Z][A-Z0-9]*)-\d+$/i);
+        if (m) nodes[m[1].toUpperCase()] = el;
+    });
+    const clusters = {};
+    svg.querySelectorAll('g.cluster').forEach(el => { if (el.id) clusters[el.id.toUpperCase()] = el; });
+    const edges = [];
+    svg.querySelectorAll('path.flowchart-link').forEach(el => {
+        const cls = [...el.classList];
+        const src = (cls.find(c => c.startsWith('LS-')) || '').slice(3).toUpperCase();
+        const dst = (cls.find(c => c.startsWith('LE-')) || '').slice(3).toUpperCase();
+        edges.push({ el, src, dst, lbl: null });
+    });
+    svg.querySelectorAll('g.edgeLabel').forEach((el, i) => { if (edges[i]) edges[i].lbl = el; });
+    return { nodes, clusters, edges };
+}
+
+function op(el, v)  { if (el) el.style.opacity = String(v); }
+function glowOn(el) {
+    const s = el.querySelector('rect,polygon,circle,ellipse');
+    if (!s) return;
+    s.style.stroke = '#58a6ff'; s.style.strokeWidth = '2.5';
+    s.style.filter = 'drop-shadow(0 0 9px rgba(88,166,255,.65))';
+}
+function glowOff(el) {
+    const s = el.querySelector('rect,polygon,circle,ellipse');
+    if (!s) return;
+    s.style.stroke = s.style.strokeWidth = s.style.filter = '';
+}
+function applyToIdx(idx, matched, allOn) {
+    if (!idx) return;
+    const { nodes, clusters, edges } = idx;
+    Object.values(nodes).forEach(e    => op(e, 0.1));
+    Object.values(clusters).forEach(e => op(e, 0.18));
+    edges.forEach(({ el, lbl }) => { op(el, 0.06); op(lbl, 0.06); });
+    if (allOn) {
+        Object.values(nodes).forEach(e    => { op(e, 1); glowOn(e); });
+        Object.values(clusters).forEach(e => op(e, 1));
+        edges.forEach(({ el, lbl }) => { op(el, 0.9); op(lbl, 0.9); });
+        return;
+    }
+    matched.forEach(id => { const el = nodes[id]; if (el) { op(el, 1); glowOn(el); } });
+    edges.forEach(({ el, src, dst, lbl }) => {
+        const sm = matched.has(src), dm = matched.has(dst);
+        if (sm || dm) {
+            const both = sm && dm;
+            op(el, both ? 0.9 : 0.38);
+            if (both) { el.style.stroke = '#58a6ff'; el.style.strokeWidth = '1.8'; }
+            op(lbl, both ? 0.9 : 0.35);
+        }
+    });
+    Object.values(clusters).forEach(e => op(e, 0.45));
+}
+function softDim(idx) {
+    if (!idx) return;
+    Object.values(idx.nodes).forEach(e    => { op(e, 0.3); glowOff(e); });
+    Object.values(idx.clusters).forEach(e => op(e, 0.3));
+    idx.edges.forEach(({ el, lbl }) => { op(el, 0.15); op(lbl, 0.15); });
+}
+function resetIdx(idx) {
+    if (!idx) return;
+    Object.values(idx.nodes).forEach(e    => { op(e, 1); glowOff(e); });
+    Object.values(idx.clusters).forEach(e => op(e, 1));
+    idx.edges.forEach(({ el, lbl }) => { op(el, 1); op(lbl, 1); el.style.stroke = el.style.strokeWidth = ''; });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FILTER ACTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+function applyFilter(type, id) {
+    const item = FD[type].find(f => f.id === id);
+    if (!item) return;
+    CURR = { type, id, item };
+    WALK_STATE = null;
+    document.getElementById('walk-controls').classList.remove('show');
+
+    const d1Matched = new Set((item.nodes || []).map(n => n.toUpperCase()));
+    const d2Matched = new Set((item.nodes || []).filter(n => DIAG2_NODES.includes(n)).map(n => n.toUpperCase()));
+    applyToIdx(IDX.d1, d1Matched, false);
+    if (item.diag2All) applyToIdx(IDX.d2, new Set(DIAG2_NODES), true);
+    else if (d2Matched.size > 0) applyToIdx(IDX.d2, d2Matched, false);
+    else softDim(IDX.d2);
+
+    const badge = document.getElementById('info-badge');
+    badge.textContent = item.id; badge.className = 'info-badge';
+    document.getElementById('info-subtitle').textContent = item.subtitle;
+    document.getElementById('info-desc').textContent = item.desc;
+
+    const linksEl = document.getElementById('info-links');
+    linksEl.innerHTML = '';
+    const addLink = (text, action) => {
+        const a = Object.assign(document.createElement('a'), { className:'info-link', textContent:text });
+        a.addEventListener('click', e => { e.preventDefault(); action(); });
+        linksEl.appendChild(a);
+    };
+    addLink('↓ Section 4.1', () => scrollToSection('section41'));
+    if (item.diag2All || item.scrollTo) addLink('↓ Section 4.3 STEP-080', () => scrollToSection('section43'));
+
+    document.getElementById('info-banner').classList.add('show');
+    document.getElementById('clear-btn').classList.add('show');
+    document.querySelectorAll('.pill').forEach(p => p.classList.toggle('sel', p.dataset.type === type && p.dataset.id === id));
+
+    const forceSection = (item.diag2All || item.scrollTo) ? 'section43' : null;
+    scrollToMatchedNodes(item.nodes || [], forceSection);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WALKTHROUGH ACTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+function startWalkthrough(wid) {
+    const w = WALKS[wid];
+    if (!w) return;
+    WALK_STATE = { id: wid, stepIdx: 0 };
+    CURR = null;
+    document.getElementById('info-banner').classList.remove('show');
+    document.getElementById('walk-controls').classList.add('show');
+    document.getElementById('clear-btn').classList.add('show');
+    document.querySelectorAll('.pill').forEach(p => p.classList.toggle('sel', p.dataset.id === wid));
+    renderWalkStep();   // renderWalkStep handles the scroll
+}
+
+function renderWalkStep() {
+    if (!WALK_STATE) return;
+    const w = WALKS[WALK_STATE.id];
+    const step = w.steps[WALK_STATE.stepIdx];
+    const total = w.steps.length;
+    const idx   = WALK_STATE.stepIdx;
+
+    document.getElementById('walk-progress').textContent = `Step ${idx+1} of ${total}`;
+    document.getElementById('walk-step-title').textContent = step.title;
+    document.getElementById('walk-step-desc').textContent  = step.desc;
+    document.getElementById('walk-prev').disabled = idx === 0;
+    document.getElementById('walk-next').disabled = idx === total - 1;
+
+    const matched = new Set(step.nodes.map(n => n.toUpperCase()));
+    const d2m = new Set(step.nodes.filter(n => DIAG2_NODES.includes(n)).map(n => n.toUpperCase()));
+    applyToIdx(IDX.d1, matched, false);
+    if (d2m.size > 0) applyToIdx(IDX.d2, d2m, false);
+    else softDim(IDX.d2);
+
+    // Scroll so highlighted nodes are centred in the visible viewport
+    const hasD2 = d2m.size > 0;
+    scrollToMatchedNodes(step.nodes, hasD2 ? 'section43' : null);
+}
+
+function walkStep(delta) {
+    if (!WALK_STATE) return;
+    const w = WALKS[WALK_STATE.id];
+    WALK_STATE.stepIdx = Math.max(0, Math.min(w.steps.length - 1, WALK_STATE.stepIdx + delta));
+    renderWalkStep();
+}
+
+function clearFilter() {
+    CURR = null; WALK_STATE = null;
+    resetIdx(IDX.d1); resetIdx(IDX.d2);
+    document.getElementById('info-banner').classList.remove('show');
+    document.getElementById('walk-controls').classList.remove('show');
+    document.getElementById('clear-btn').classList.remove('show');
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('sel'));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SCROLL
+// ─────────────────────────────────────────────────────────────────────────────
+function scrollToSection(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    // Double rAF ensures layout is recalculated after banner show/hide
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        const barH = document.getElementById('sticky-top').offsetHeight;
+        const top  = el.getBoundingClientRect().top + window.scrollY - barH - 10;
+        window.scrollTo({ top: Math.max(0, top), behavior:'smooth' });
+    }));
+}
+
+// Scroll so that the highlighted SVG nodes are centered in the visible area
+// below the sticky header. Falls back to scrolling the section card into view.
+function scrollToMatchedNodes(nodeIds, forceSectionId) {
+    if (forceSectionId) { scrollToSection(forceSectionId); return; }
+
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        const barH  = document.getElementById('sticky-top').offsetHeight;
+        const viewH = window.innerHeight;
+
+        // Collect bounding rects of matched nodes in diagram 1
+        const rects = nodeIds
+            .map(id => IDX.d1?.nodes[id.toUpperCase()])
+            .filter(Boolean)
+            .map(el => el.getBoundingClientRect());
+
+        if (rects.length === 0) { scrollToSection('section41'); return; }
+
+        const groupTop    = Math.min(...rects.map(r => r.top));
+        const groupBottom = Math.max(...rects.map(r => r.bottom));
+        const contentH    = viewH - barH;
+
+        // Already fully in view - no scroll needed
+        if (groupTop >= barH + 10 && groupBottom <= viewH - 10) return;
+
+        let targetY;
+        if ((groupBottom - groupTop) > contentH * 0.65) {
+            // Group is taller than 65 % of viewport - align its top
+            targetY = window.scrollY + groupTop - barH - 24;
+        } else {
+            // Center the group in the available content area
+            const groupCenter = (groupTop + groupBottom) / 2;
+            const viewCenter  = barH + contentH / 2;
+            targetY = window.scrollY + groupCenter - viewCenter;
+        }
+        window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+    }));
+}
+
+function scrollToTop() { window.scrollTo({ top: 0, behavior:'smooth' }); }
+
+window.addEventListener('scroll', () => {
+    document.getElementById('back-top').classList.toggle('show', window.scrollY > 100);
+}, { passive: true });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB SWITCHING
+// ─────────────────────────────────────────────────────────────────────────────
+function switchTab(cat, btn) {
+    clearFilter();
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    document.querySelectorAll('.pill-group').forEach(g => g.classList.remove('active'));
+    const pg = document.getElementById('pills-' + cat);
+    if (pg) pg.classList.add('active');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUILD PILLS
+// ─────────────────────────────────────────────────────────────────────────────
+function trunc(s, n) { return s.length > n ? s.slice(0,n)+'\u2026' : s; }
+
+function buildPills() {
+    const sets = {
+        tier: { el:document.getElementById('pills-tier'), fn: f => f.label+(f.step?' \u00b7 '+f.step:''), type:'tier' },
+        scn:  { el:document.getElementById('pills-scn'),  fn: f => f.id+' \u00b7 '+trunc(f.subtitle,26), type:'scn'  },
+        req:  { el:document.getElementById('pills-req'),  fn: f => f.id+' \u00b7 '+trunc(f.subtitle,24), type:'req'  },
+        step: { el:document.getElementById('pills-step'), fn: f => f.id+' \u00b7 '+trunc(f.subtitle,24), type:'step' },
+        osi:  { el:document.getElementById('pills-osi'),  fn: f => f.label, type:'osi' },
+    };
+    Object.entries(sets).forEach(([type, { el, fn }]) => {
+        FD[type].forEach(item => {
+            const btn = document.createElement('button');
+            btn.className = 'pill'; btn.dataset.type = type; btn.dataset.id = item.id;
+            if (type === 'osi') btn.dataset.osi = item.id;
+            btn.textContent = fn(item); btn.title = item.subtitle;
+            btn.addEventListener('click', () => { if (btn.classList.contains('sel')) clearFilter(); else applyFilter(type, item.id); });
+            el.appendChild(btn);
+        });
+    });
+
+    // Walkthrough pills
+    const wEl = document.getElementById('pills-walk');
+    Object.entries(WALKS).forEach(([wid, w]) => {
+        const btn = document.createElement('button');
+        btn.className = 'pill walk-pill'; btn.dataset.type = 'walk'; btn.dataset.id = wid;
+        btn.textContent = '\u25BA ' + w.title; btn.title = 'Step-by-step walkthrough';
+        btn.addEventListener('click', () => { if (btn.classList.contains('sel')) clearFilter(); else startWalkthrough(wid); });
+        wEl.appendChild(btn);
+    });
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') clearFilter();
+    if (WALK_STATE) {
+        if (e.key === 'ArrowRight') walkStep(+1);
+        if (e.key === 'ArrowLeft')  walkStep(-1);
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────────
+buildPills();
+
+window.addEventListener('diagrams-ready', () => {
+    setTimeout(() => {
+        const svgs = document.querySelectorAll('.diagram-wrap svg');
+        if (svgs[0]) { IDX.d1 = buildIdx(svgs[0]); }
+        if (svgs[1]) { IDX.d2 = buildIdx(svgs[1]); }
+        console.log('[GlobalParks v0.6] Diag-1 nodes:', Object.keys(IDX.d1?.nodes||{}).join(', '));
+        console.log('[GlobalParks v0.6] Diag-2 nodes:', Object.keys(IDX.d2?.nodes||{}).join(', '));
+    }, 400);
+});
+</script>
+</body>
+</html>

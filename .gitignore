@@ -1,0 +1,15 @@
+# Source PRD (binary - content captured in DESIGN.md)
+*.docx
+*.doc
+
+# Temporary Mermaid export files
+*.png
+*.svg
+*.mmd
+
+# OS and editor noise
+Thumbs.db
+.DS_Store
+desktop.ini
+.vscode/
+.cursor/
