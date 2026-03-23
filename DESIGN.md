@@ -14,15 +14,21 @@
 ## Table of Contents
 
 1. [Executive Summary](#1-executive-summary)
+   - 1.1 [Glossary and Acronyms](#11-glossary-and-acronyms)
 2. [Platform Context and Constraints](#2-platform-context-and-constraints)
 3. [User Personas](#3-user-personas)
 4. [Security Architecture Overview](#4-security-architecture-overview)
+   - 4.1 [N-Tier Architecture Diagram](#41-n-tier-architecture-diagram)
+   - 4.2 [OSI Layer Control Mapping](#42-osi-layer-control-mapping)
+   - 4.3 [Security Detection and Prevention by Tier](#43-security-detection-and-prevention-by-tier)
 5. [Architecture Walkthrough](#5-architecture-walkthrough)
 6. [Scenario Traces](#6-scenario-traces)
 7. [Requirements Traceability Matrix](#7-requirements-traceability-matrix)
 8. [Architectural Decisions](#8-architectural-decisions)
 9. [Open Questions](#9-open-questions)
 10. [Revision History](#10-revision-history)
+- [Appendix A - Architecture Diagram (Mermaid Source)](#appendix-a---architecture-diagram-mermaid-source)
+- [Appendix B - STEP-080 Security Operations Detail Diagram](#appendix-b---step-080-security-operations-detail-diagram)
 
 ---
 
@@ -33,6 +39,45 @@ GlobalParks is a globally distributed web and mobile platform serving millions o
 This document describes the network security and management architecture. The design is built on three foundational principles. First, **Zero Trust**: no request is trusted by virtue of its origin; every access decision is grounded in verified identity, device state, and contextual signals. Second, **defence in depth**: security controls are layered so that the failure of any single control does not expose the platform. Third, **central governance with regional workload isolation**: a Central SRE team owns the security hub, while regional teams manage application workloads in isolated spoke networks.
 
 The architecture uses a **Hub and Spoke Virtual Network topology** across 12 regional Azure Virtual WANs. Public traffic enters via Azure Front Door (a globally distributed edge service with built-in WAF and DDoS protection), is routed to the nearest regional spoke, and passes through a regional Hub Firewall before reaching application or data tiers. Park administrators connect exclusively from the corporate network via ExpressRoute. Rangers in the field connect via VPN. Both paths pass through the Hub Firewall. Backend databases are accessible only via private endpoints with no public IP address. On-premises park systems integrate via ExpressRoute and Azure IoT Hub. Every signal across all tiers is aggregated into Microsoft Sentinel for AI-driven threat detection.
+
+### 1.1 Glossary and Acronyms
+
+| Acronym / Term | Full name | Brief description |
+|---|---|---|
+| **ADR** | Architectural Decision Record | A document capturing a significant architectural decision, the context, options considered, and the rationale for the choice made |
+| **ASG** | Application Security Group | Azure construct that groups virtual machine NICs by workload role, enabling NSG rules to reference logical groups instead of IP addresses |
+| **B2C** | Business to Consumer | Refers to the public-facing visitor persona and to Entra External ID (the Azure identity service for external/social login) |
+| **CSPM** | Cloud Security Posture Management | Continuous assessment of cloud resource configuration against security benchmarks; provided by Defender for Cloud |
+| **DDoS** | Distributed Denial of Service | A volumetric network attack using many sources to overwhelm a target's bandwidth or connection capacity |
+| **DRS** | Default Rule Set | Microsoft's managed WAF rule library, maintained and updated by Microsoft, mapping to the OWASP Top 10 vulnerability list |
+| **ExpressRoute** | Azure ExpressRoute | A dedicated private fibre circuit connecting a corporate data centre or WAN to Azure, bypassing the public internet entirely |
+| **FQDN** | Fully Qualified Domain Name | A complete domain name that specifies the exact location in the DNS hierarchy (e.g. `mydb.database.windows.net`) |
+| **IDPS** | Intrusion Detection and Prevention System | An inline engine that matches network traffic against a database of known attack signatures; blocks matches and logs events. Available in Azure Firewall Premium. |
+| **IKE** | Internet Key Exchange | The protocol used to negotiate VPN tunnel parameters and establish IPsec security associations |
+| **MFA** | Multi-Factor Authentication | Requiring two or more verification factors (password + authenticator app, FIDO2 key, etc.) before granting access |
+| **NSG** | Network Security Group | Azure stateful firewall applied at the subnet or NIC level; enforces allow/deny rules based on source/destination IP, port, and protocol |
+| **NVA** | Network Virtual Appliance | A third-party firewall or network device (e.g. Palo Alto, Fortinet) deployed as a VM in Azure, as an alternative to Azure Firewall |
+| **OWASP** | Open Web Application Security Project | An open-source foundation that publishes the OWASP Top 10 — the industry-standard list of the most critical web application security risks |
+| **P2S** | Point-to-Site VPN | A per-device encrypted VPN tunnel from an individual device to Azure, authenticated using Entra ID credentials or certificates |
+| **PoP** | Point of Presence | One of Microsoft's 200+ globally distributed edge nodes where Azure Front Door terminates TCP connections and applies WAF/DDoS inspection |
+| **Private Endpoint** | Azure Private Endpoint | A virtual NIC injected into a VNet subnet with a private IP, providing access to a PaaS service (Azure SQL, Cosmos DB) over the private network |
+| **REQ** | Requirement | A traceable platform requirement, formatted as REQ-#.# throughout this document, linked to the traceability matrix in Section 7 |
+| **RPO** | Recovery Point Objective | Maximum acceptable data loss measured in time; GlobalParks target is 15 minutes |
+| **RTO** | Recovery Time Objective | Maximum acceptable downtime before a service must be restored; GlobalParks target is 5 minutes |
+| **S2S** | Site-to-Site VPN | An IPsec encrypted tunnel between a corporate office or data centre and Azure, used as the backup path for administrator connectivity |
+| **SCN** | Scenario | A named end-to-end user journey (e.g. SCN-001: public visitor access), traced through the architecture steps in Section 6 |
+| **SIEM** | Security Information and Event Management | A platform that collects, correlates, and queries security events across an environment; Microsoft Sentinel is the SIEM in this architecture |
+| **SOAR** | Security Orchestration, Automation and Response | Automated response to security incidents using playbooks; Sentinel Logic App Playbooks provide SOAR capability |
+| **SOC** | Security Operations Centre | The team responsible for monitoring, detecting, and responding to security incidents |
+| **SRE** | Site Reliability Engineer / Team | The Central Cloud SRE team responsible for day-2 operations: Firewall policy, monitoring, incident response, and platform governance |
+| **STEP** | Architecture Step | A numbered walkthrough step (e.g. STEP-010) corresponding to a tier in the N-tier diagram, detailed in Section 5 |
+| **TLS** | Transport Layer Security | The encryption protocol that protects data in transit; Azure enforces TLS 1.2 minimum across all services in this architecture |
+| **UDR** | User-Defined Route | A custom route added to an Azure route table to override default routing and force traffic through a specific next hop (e.g. Azure Firewall) |
+| **VNet** | Virtual Network | Azure's isolated private network, equivalent to an on-premises LAN; the fundamental network boundary in Azure |
+| **VWAN** | Azure Virtual WAN | Microsoft's managed hub-and-spoke network service providing ExpressRoute, S2S VPN, and P2S VPN gateway aggregation with built-in Routing Intent |
+| **WAF** | Web Application Firewall | An L7 HTTP/S inspection engine that blocks web attacks (SQL injection, XSS, OWASP Top 10); deployed at Azure Front Door and App Gateway |
+| **XSS** | Cross-Site Scripting | A web attack injecting malicious scripts into a trusted page, exploited to steal session tokens or redirect users |
+| **Zero Trust** | Zero Trust Network Access | A security model that assumes no implicit trust based on network location; every access request is verified for identity, device state, and context |
 
 ---
 
@@ -136,61 +181,34 @@ The table below provides a direct mapping: for each OSI layer, the specific thre
 
 ---
 
-### 4.3 STEP-080 Security Operations - Detailed View
+### 4.3 Security Detection and Prevention by Tier
 
-The Security Operations tier collects signals from all other tiers and provides detection, posture management, preventive controls, and automated response. The diagram below shows how these capabilities interconnect.
+The table below maps each tier to the specific Azure services that provide detection and prevention at that layer. For the Security Operations signal-to-response flow diagram, see [Appendix B](#appendix-b---step-080-security-operations-detail-diagram).
 
-```mermaid
-flowchart LR
-    subgraph INPUTS["Signal Sources - All Tiers"]
-        direction TB
-        FWLOG["Azure Firewall\nIDPS alerts and traffic logs"]
-        WAFLOG["WAF Block Events\nFront Door and App Gateway"]
-        NSGLOG["NSG Flow Logs\nAll subnets"]
-        DEFLOG["Defender for SQL\nQuery anomalies"]
-        IDLOG["Entra ID Protection\nSign-in risk signals"]
-        SRVLOG["Defender for Servers\nVulnerability findings"]
-    end
-    subgraph COLLECT["Collection Layer"]
-        AZMON["Azure Monitor\nLog Analytics Workspace\nKQL queryable  REQ-4.3"]
-    end
-    subgraph POSTURE["Posture Management"]
-        MDFC["Defender for Cloud\nCSPM - Security Score\nPCI-DSS, GDPR, ISO 27001, NIST dashboards\nREQ-4.2"]
-    end
-    subgraph DETECT["Detection and Correlation"]
-        SENTINEL["Microsoft Sentinel\nSIEM - AI Fusion multi-stage detection\nCustom analytics rules\nREQ-4.3"]
-    end
-    subgraph PREVENT["Preventive Controls"]
-        POLICY["Azure Policy\nDeployment-time enforcement\nNon-compliant resources blocked at creation"]
-        GITOPS["GitOps Pipeline\nFirewall Policy as Code\nPR-gated rule changes  Q-03"]
-    end
-    subgraph RESPOND["Automated Response - Playbooks"]
-        PLAYBOOK["Logic App Playbooks\nSOAR automation"]
-        BLOCKIP["Block IP at Firewall"]
-        DISABLE["Disable Entra ID Account"]
-        ISOLATE["Isolate VM or Subnet"]
-        ITSM["ITSM Ticket - SOC escalation"]
-    end
-
-    FWLOG --> AZMON
-    WAFLOG --> AZMON
-    NSGLOG --> AZMON
-    DEFLOG --> AZMON
-    IDLOG --> AZMON
-    SRVLOG --> AZMON
-
-    AZMON --> SENTINEL
-    AZMON --> MDFC
-    MDFC -->|"Posture alerts"| SENTINEL
-
-    SENTINEL --> PLAYBOOK
-    PLAYBOOK --> BLOCKIP
-    PLAYBOOK --> DISABLE
-    PLAYBOOK --> ISOLATE
-    PLAYBOOK --> ITSM
-
-    GITOPS -.->|"Policy as code"| POLICY
-```
+| Tier | Step | Azure Service | Detection | Prevention |
+|---|---|---|---|---|
+| T0 - External Users | STEP-010 | Entra ID Protection | Risky sign-in events, leaked credential detection | — |
+| T2 - Identity | STEP-020 | Entra Conditional Access | Risk signal aggregation (sign-in risk, device compliance, location) | Hard block (High risk), step-up MFA (Medium risk), device compliance gate |
+| T3 - Private Connectivity | STEP-040/041 | VPN Gateway | IKE negotiation failures, certificate errors logged | Certificate-based mutual auth — invalid clients rejected before session |
+| T3 - Private Connectivity | STEP-040/041 | VWAN Routing Intent | — | Forces all gateway traffic to Hub Firewall — no spoke bypass path exists |
+| T1 - Internet Edge | STEP-030 | Azure Front Door + WAF | L7 attack pattern logging (WAF block events) | OWASP/DRS rule blocking, geo-blocking, bot protection, rate limiting |
+| T1 - Internet Edge | STEP-030 | Azure DDoS Protection Standard | Volumetric attack telemetry, per-IP anomaly detection | Adaptive scrubbing at Azure edge before packets enter any VNet |
+| T4 - Hub VNet | STEP-050 | Azure Firewall Premium — IDPS | 2,500+ signature-based threat alerts, lateral movement detection | Inline block of matched attack patterns across all traffic sources |
+| T4 - Hub VNet | STEP-050 | Azure Firewall Premium — TLS Inspection | Encrypted payload inspection (attacks hidden in HTTPS are visible) | Decrypt, inspect, re-encrypt — enforced for all HTTPS sessions |
+| T4 - Hub VNet | STEP-050 | Azure Firewall — Threat Intelligence | Known malicious IP and domain alerts (Microsoft TI feed) | Auto-block of blacklisted IPs, domains, and FQDNs |
+| T5A - B2C Spoke | STEP-060A | App Gateway WAF v2 | Second-layer OWASP detection, application-specific custom rule logging | WAF blocking tuned to GlobalParks public API surface |
+| T5A - B2C Spoke | STEP-060A | NSG (web subnet) | NSG flow log anomalies | Allow-list: inbound from App Gateway source IPs only |
+| T5B - Admin Spoke | STEP-060B | Internal App Gateway WAF v2 | Management API HTTP-layer attack detection | WAF blocking — independently tuned for admin/ranger API endpoints |
+| T5B - Admin Spoke | STEP-060B | NSG (app subnet) | NSG flow log anomalies | Allow-list: inbound from internal AGW source IPs only |
+| T6 - Data Tier | STEP-070 | NSG + ASG | Unauthorised subnet access attempts (flow logs to Sentinel) | Allow-list: only ASG `asg-b2c-web` and `asg-admin-app` |
+| T6 - Data Tier | STEP-070 | Defender for SQL | Query anomalies, injection attempts at DB layer, unusual bulk reads | Alert fed to Sentinel; Playbook can quarantine via Firewall rule |
+| T6 - Data Tier | STEP-070 | Azure Private Endpoints | — | Eliminates public endpoint entirely — no public IP, no public DNS record |
+| T7 - Security Operations | STEP-080 | Microsoft Sentinel | AI Fusion multi-stage attack correlation, custom analytics rules | SOAR Playbooks: IP block at Firewall, account disable, VM isolation |
+| T7 - Security Operations | STEP-080 | Defender for Cloud | CSPM posture drift, vulnerability assessment, compliance dashboards | Azure Policy blocks non-compliant resource deployments at creation time |
+| T7 - Security Operations | STEP-080 | Azure Monitor + Log Analytics | Centralised telemetry aggregation (KQL queryable across all regions) | — |
+| T7 - Security Operations | STEP-080 | Azure Policy + GitOps | Policy violation detection | Preventive: deployment-time enforcement + PR-gated Firewall rule changes |
+| T8 - On-premises | STEP-090 | Azure Arc | Hybrid resource posture; Defender for Servers on on-premises VMs | Policy and governance extended to on-premises workloads |
+| T8 - On-premises | STEP-090 | Azure IoT Hub | Device identity anomalies, telemetry integrity | X.509 certificate device authentication; per-device policy enforcement |
 
 ---
 
@@ -240,6 +258,40 @@ This layer is essential for rangers precisely because they are the only persona 
 | **PRD requirements** | [REQ-2.1](#7-requirements-traceability-matrix), [REQ-2.2](#7-requirements-traceability-matrix) |
 | **Azure services** | Microsoft Entra External ID (B2C), Microsoft Entra ID, Conditional Access policies, Entra ID Protection |
 | **Owner** | Identity team (policies), SRE (integration) |
+
+---
+
+### STEP-040 - Connectivity - Park Administrators (Corporate Network)
+
+Park Administrators are restricted to the corporate network at the network layer - not just by policy. The architecture enforces this by ensuring no admin-facing endpoint is reachable from the public internet.
+
+**Azure ExpressRoute** is the primary path ([ADR-003](#adr-003---expressroute--s2s-vpn-for-administrators-p2s-vpn-for-rangers)). It provides a dedicated private circuit between corporate HQ and Azure - physically isolated from the public internet, never traversing shared infrastructure. ExpressRoute connects to the regional **Azure Virtual WAN** Hub, which provides enterprise-scale any-to-any routing between the corporate circuit and all regional spokes, all routed through the Hub Firewall.
+
+**VPN Gateway Site-to-Site (S2S)** serves as the backup path for branch offices or during an ExpressRoute circuit outage. S2S traffic also enters via VWAN and is subject to identical Firewall inspection. All admin traffic - regardless of path - passes through the Hub Firewall before reaching any spoke resource.
+
+Note: ExpressRoute provisioning requires 4-8 weeks with a network provider. This must be contracted immediately to avoid blocking the admin connectivity path at launch (Q-06).
+
+| | Detail |
+|---|---|
+| **Scenarios** | [SCN-002](#scn-002---park-administrator-accesses-backend-management) |
+| **PRD requirements** | Supports [REQ-2.2](#7-requirements-traceability-matrix) and [REQ-4.1](#7-requirements-traceability-matrix) |
+| **Azure services** | Azure ExpressRoute, Azure Virtual WAN, VPN Gateway (S2S), Entra ID Conditional Access |
+| **Owner** | Network team (circuits and gateway), SRE (routing, Firewall rules) |
+
+---
+
+### STEP-041 - Connectivity - Park Rangers (Field and Park Sites)
+
+Park Rangers connect from field locations via **Azure VPN Gateway Point-to-Site (P2S)**, authenticated using their Entra ID credentials. P2S traffic is now routed through the regional **Azure Virtual WAN** Hub (User VPN configuration), ensuring consistent routing policy and scale parity with the administrator path. This means all three privileged connectivity paths - ExpressRoute, S2S VPN, and P2S VPN - converge at VWAN before the Hub Firewall.
+
+The P2S VPN profile restricts ranger devices to specific destination subnets (the Internal App Tier - STEP-060B). Rangers cannot reach Hub management interfaces, cross-spoke to other regions, or access the B2C public subnet without an explicit Firewall policy rule permitting it.
+
+| | Detail |
+|---|---|
+| **Scenarios** | [SCN-002b](#scn-002b---park-ranger-accesses-backend-from-a-field-office) |
+| **PRD requirements** | Supports [REQ-2.2](#7-requirements-traceability-matrix) and [REQ-4.1](#7-requirements-traceability-matrix) |
+| **Azure services** | VPN Gateway P2S (VWAN User VPN), Entra ID authentication, Azure Firewall (Hub inspection) |
+| **Owner** | Network team (gateway and VPN profile), SRE (Firewall rules, access policy) |
 
 ---
 
@@ -351,7 +403,18 @@ The Data Tier holds all sensitive data and is completely invisible to the public
 
 **Data store split (Q-04):** Azure SQL Database stores structured metadata - reservation details, park configurations, pass records, invoice references. Azure Cosmos DB stores document-type content - invoice PDFs references, reservation agreement documents, pass certificates, and unstructured visitor data. Each service gets its own Private Endpoint with its own private DNS zone (`privatelink.database.windows.net` and `privatelink.documents.azure.com`).
 
-**Azure Private DNS Zones** are linked to the Hub VNet so that all regional spoke workloads resolve database FQDNs to private IPs transparently. Without this, DNS would return the public IP and traffic would bypass the private endpoint.
+**Azure Private DNS Zones - why they are linked to both Hub VNet and Spoke VNets:**
+
+When an app server queries `mydb.database.windows.net`, Azure's DNS must return the Private Endpoint's private IP (e.g. `10.1.2.5`) instead of the database's public IP. Without the correct DNS zone link, the query returns the public IP and traffic bypasses the Private Endpoint entirely - the database's public endpoint is disabled, so the connection fails or re-routes incorrectly.
+
+GlobalParks uses a **centralised DNS model** using Azure Private DNS Resolver deployed in each Hub VNet. Each Spoke VNet's DNS settings point to the Hub VNet's DNS resolver inbound endpoint IP rather than Azure's default resolver (168.63.129.16). This means:
+
+1. An app server in a Spoke VNet queries the Hub VNet's DNS resolver
+2. The resolver checks the Private DNS Zone linked to the Hub VNet
+3. The zone returns the private IP for the Private Endpoint
+4. Traffic flows over the private network through the Private Endpoint
+
+Private DNS Zones are therefore linked to **Hub VNets only** (not to each of the 24 Spoke VNets individually). This is more manageable at scale: adding a new spoke requires only updating the spoke's DNS server setting to point to the Hub resolver, not creating new DNS zone links. The two Private DNS Zones in use are `privatelink.database.windows.net` (Azure SQL) and `privatelink.documents.azure.com` (Cosmos DB), each linked to all 12 Hub VNets.
 
 The **NSG on the Data Tier subnet** allows inbound traffic only from `asg-b2c-web` and `asg-admin-app`. Any lateral movement from any other subnet - even within the same VNet - is denied at this layer.
 
@@ -368,43 +431,9 @@ This structure is replicated identically across all 12 regional spokes. Each reg
 
 ---
 
-### STEP-040 - Connectivity - Park Administrators (Corporate Network)
-
-Park Administrators are restricted to the corporate network at the network layer - not just by policy. The architecture enforces this by ensuring no admin-facing endpoint is reachable from the public internet.
-
-**Azure ExpressRoute** is the primary path ([ADR-003](#adr-003---expressroute--s2s-vpn-for-administrators-p2s-vpn-for-rangers)). It provides a dedicated private circuit between corporate HQ and Azure - physically isolated from the public internet, never traversing shared infrastructure. ExpressRoute connects to the regional **Azure Virtual WAN** Hub, which provides enterprise-scale any-to-any routing between the corporate circuit and all regional spokes, all routed through the Hub Firewall.
-
-**VPN Gateway Site-to-Site (S2S)** serves as the backup path for branch offices or during an ExpressRoute circuit outage. S2S traffic also enters via VWAN and is subject to identical Firewall inspection. All admin traffic - regardless of path - passes through the Hub Firewall before reaching any spoke resource.
-
-Note: ExpressRoute provisioning requires 4-8 weeks with a network provider. This must be contracted immediately to avoid blocking the admin connectivity path at launch (Q-06).
-
-| | Detail |
-|---|---|
-| **Scenarios** | [SCN-002](#scn-002---park-administrator-accesses-backend-management) |
-| **PRD requirements** | Supports [REQ-2.2](#7-requirements-traceability-matrix) and [REQ-4.1](#7-requirements-traceability-matrix) |
-| **Azure services** | Azure ExpressRoute, Azure Virtual WAN, VPN Gateway (S2S), Entra ID Conditional Access |
-| **Owner** | Network team (circuits and gateway), SRE (routing, Firewall rules) |
-
----
-
-### STEP-041 - Connectivity - Park Rangers (Field and Park Sites)
-
-Park Rangers connect from field locations via **Azure VPN Gateway Point-to-Site (P2S)**, authenticated using their Entra ID credentials. P2S traffic is now routed through the regional **Azure Virtual WAN** Hub (User VPN configuration), ensuring consistent routing policy and scale parity with the administrator path. This means all three privileged connectivity paths - ExpressRoute, S2S VPN, and P2S VPN - converge at VWAN before the Hub Firewall.
-
-The P2S VPN profile restricts ranger devices to specific destination subnets (the Internal App Tier - STEP-060B). Rangers cannot reach Hub management interfaces, cross-spoke to other regions, or access the B2C public subnet without an explicit Firewall policy rule permitting it.
-
-| | Detail |
-|---|---|
-| **Scenarios** | [SCN-002b](#scn-002b---park-ranger-accesses-backend-from-a-field-office) |
-| **PRD requirements** | Supports [REQ-2.2](#7-requirements-traceability-matrix) and [REQ-4.1](#7-requirements-traceability-matrix) |
-| **Azure services** | VPN Gateway P2S (VWAN User VPN), Entra ID authentication, Azure Firewall (Hub inspection) |
-| **Owner** | Network team (gateway and VPN profile), SRE (Firewall rules, access policy) |
-
----
-
 ### STEP-080 - Security Operations and Governance
 
-All controls in STEP-010 through STEP-041 generate signals. This step collects, correlates, and acts on those signals. The SOC and SRE team need a single view of the entire platform across all 12 regions with the ability to detect sophisticated multi-stage attacks that no single alert would surface. See [Section 4.3](#43-step-080-security-operations---detailed-view) for the full operational diagram.
+All controls in STEP-010 through STEP-041 generate signals. This step collects, correlates, and acts on those signals. The SOC and SRE team need a single view of the entire platform across all 12 regions with the ability to detect sophisticated multi-stage attacks that no single alert would surface. See [Appendix B](#appendix-b---step-080-security-operations-detail-diagram) for the full operational diagram.
 
 **Azure Monitor and Log Analytics** collect every signal - Firewall IDPS events, WAF block events, NSG Flow Logs, Application Gateway access logs, database anomaly alerts, and Entra ID sign-in risk signals - into a central workspace queryable in KQL.
 
@@ -792,6 +821,7 @@ All questions from prior iterations are now closed.
 | 0.4 | 2026-03-21 | Iteration 2 complete - Three personas (fix); STEP-090 on-premises added with SCN-006/007/008; main Mermaid updated with STEP labels, P2S through VWAN, T6 multi-region, T8; STEP-050 split into 050A (B2C) and 050B (Admin/Ranger); Conditional Access policies detailed; WAF comparison table added; DRS/OWASP/PoP/IDPS explained; hyperlinks and back-links added; OSI table restructured to direct threat-to-service mapping; STEP-080 detailed Mermaid added as Section 4.3; ADR-001 updated (Traffic Manager excluded); ADR-003 pros/cons table added; ADR-004 added (VWAN topology); all 7 open questions closed; Q-08/09/10 added for Iteration 3 |
 | 0.7 | 2026-03-21 | Step renumbering - Private Connectivity steps moved earlier to reflect logical traffic order: STEP-040/041 (Private Connectivity, was STEP-070/071), STEP-050 (Hub VNet, was STEP-040), STEP-060A/060B (Spoke VNets, were STEP-050A/050B), STEP-070 (Data Tier, was STEP-060); STEP-080 and STEP-090 unchanged; all references, anchors, Mermaid diagrams, and HTML filter data updated |
 | 0.6 | 2026-03-21 | Iteration 3 continued - 24 Spoke VNets (2 per region) introduced; Hub VNet and Spoke VNet counts added to Section 2; T5 split into T5A (B2C Public Spoke) and T5B (Admin/Ranger Private Spoke) in Section 4.1 Mermaid; STEP-030 updated with explanation of why B2C internet traffic bypasses VWAN; STEP-060A updated with 24-spoke context; SCN-009 (Sydney to Great Barrier Reef) and SCN-010 (Sydney to Yosemite - cross-region) added to Section 6; HTML updated with UI fixes, step-by-step scenario walkthroughs, and OSI layer filter |
+| 0.9 | 2026-03-22 | Section 1.1 Glossary/Acronyms added (IDPS, OWASP, PoP, DRS, VWAN, and 25 other terms); Section 4.3 replaced with Security Detection and Prevention by Tier table; old Section 4.3 SecOps diagram moved to Appendix B; STEP-040/041 walkthrough sections moved before STEP-030 in Section 5 and HTML pill order updated to match; Private DNS Zones explanation enriched in STEP-070 with centralised DNS model detail |
 | 0.8 | 2026-03-21 | Section 4.1 Mermaid diagram moved to Appendix A; Section 4.1 replaced with description and links to interactive HTML and Appendix A; Appendix A added with rendering instructions and full Mermaid source |
 | 0.5 | 2026-03-21 | Iteration 3 - Section 2 rewritten as hybrid architecture with on-premises constraint rows added; STEP-020 risk-based Conditional Access fully explained (High block / Medium step-up MFA); STEP-050 VWAN Routing Intent documented as the Tier 3 firewall enforcement mechanism; STEP-060B rewritten with internal App Gateway (ADMINAGW, WAF v2, no public IP) added to admin/ranger path; Section 4.1 Mermaid updated with ADMINAGW; SCN-002, SCN-002b, SCN-008 traces updated to reflect internal AGW hop; ADR-005 added (internal App Gateway for admin/ranger tier); interactive HTML updated with ADMINAGW, OSI Layer filter (L1-L7), auto-scroll to highlighted section, back-to-top button |
 
@@ -916,4 +946,62 @@ flowchart TB
     DATANSG -.->|"NSG flow logs"| AZMON
     AZMON -->|"All telemetry REQ-4.3"| SENTINEL
     MDFC -->|"Posture alerts REQ-4.2"| SENTINEL
+```
+
+---
+
+## Appendix B - STEP-080 Security Operations Detail Diagram
+
+The diagram below shows the full signal-to-response flow for the Security Operations tier referenced in [Section 4.3](#43-security-detection-and-prevention-by-tier) and [STEP-080](#step-080---security-operations-and-governance).
+
+```mermaid
+flowchart LR
+    subgraph INPUTS["Signal Sources - All Tiers"]
+        direction TB
+        FWLOG["Azure Firewall\nIDPS alerts and traffic logs"]
+        WAFLOG["WAF Block Events\nFront Door and App Gateway"]
+        NSGLOG["NSG Flow Logs\nAll subnets"]
+        DEFLOG["Defender for SQL\nQuery anomalies"]
+        IDLOG["Entra ID Protection\nSign-in risk signals"]
+        SRVLOG["Defender for Servers\nVulnerability findings"]
+    end
+    subgraph COLLECT["Collection Layer"]
+        AZMON["Azure Monitor\nLog Analytics Workspace\nKQL queryable  REQ-4.3"]
+    end
+    subgraph POSTURE["Posture Management"]
+        MDFC["Defender for Cloud\nCSPM - Security Score\nPCI-DSS, GDPR, ISO 27001, NIST dashboards\nREQ-4.2"]
+    end
+    subgraph DETECT["Detection and Correlation"]
+        SENTINEL["Microsoft Sentinel\nSIEM - AI Fusion multi-stage detection\nCustom analytics rules\nREQ-4.3"]
+    end
+    subgraph PREVENT["Preventive Controls"]
+        POLICY["Azure Policy\nDeployment-time enforcement\nNon-compliant resources blocked at creation"]
+        GITOPS["GitOps Pipeline\nFirewall Policy as Code\nPR-gated rule changes  Q-03"]
+    end
+    subgraph RESPOND["Automated Response - Playbooks"]
+        PLAYBOOK["Logic App Playbooks\nSOAR automation"]
+        BLOCKIP["Block IP at Firewall"]
+        DISABLE["Disable Entra ID Account"]
+        ISOLATE["Isolate VM or Subnet"]
+        ITSM["ITSM Ticket - SOC escalation"]
+    end
+
+    FWLOG --> AZMON
+    WAFLOG --> AZMON
+    NSGLOG --> AZMON
+    DEFLOG --> AZMON
+    IDLOG --> AZMON
+    SRVLOG --> AZMON
+
+    AZMON --> SENTINEL
+    AZMON --> MDFC
+    MDFC -->|"Posture alerts"| SENTINEL
+
+    SENTINEL --> PLAYBOOK
+    PLAYBOOK --> BLOCKIP
+    PLAYBOOK --> DISABLE
+    PLAYBOOK --> ISOLATE
+    PLAYBOOK --> ITSM
+
+    GITOPS -.->|"Policy as code"| POLICY
 ```
