@@ -1,6 +1,6 @@
 # GlobalParks - Cloud Network Security and Management
 ### Detailed Architecture Design
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -38,7 +38,7 @@
 ---
 
 ## 1. Executive Summary
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -97,7 +97,7 @@ The architecture uses a **Hub and Spoke Virtual Network topology** across 12 reg
 ---
 
 ## 2. Platform Context and Constraints
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -131,7 +131,7 @@ All on-premises traffic - whether from legacy systems, IoT devices, or governmen
 ---
 
 ## 3. User Personas
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -140,7 +140,7 @@ Three distinct user types access the GlobalParks platform, each treated as a sep
 </details>
 
 ### B2C Visitor (millions of concurrent users)
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -149,7 +149,7 @@ A park visitor opening the GlobalParks app to check trail conditions or book a r
 </details>
 
 ### Park Administrator (privileged - corporate network only)
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -165,7 +165,7 @@ A central administrator who manages park configurations, inventory, and visitor 
 </details>
 
 ### Park Ranger (privileged - field and park sites)
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -190,7 +190,7 @@ A ranger working at a remote trailhead, park gate, or visitor centre within the 
 ---
 
 ## 4. Security Architecture Overview
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -201,7 +201,7 @@ The platform is designed as an eight-tier security architecture, where each tier
 ---
 
 ### 4.1 N-Tier Architecture Diagram
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -216,7 +216,7 @@ The platform is structured as eight tiers, each mapping to one or more OSI layer
 ---
 
 ### 4.2 OSI Layer Control Mapping
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -237,7 +237,7 @@ The table below provides a direct mapping: for each OSI layer, the specific thre
 ---
 
 ### 4.3 Security Detection and Prevention by Tier
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -273,7 +273,7 @@ The table below maps each tier to the specific Azure services that provide detec
 ---
 
 ## 5. Architecture Walkthrough
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -284,7 +284,7 @@ This section walks through each step in the order a request travels through the 
 ---
 
 ### STEP-010 - Users and Personas
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -302,7 +302,7 @@ Every request into GlobalParks begins with a person and a device. The persona ty
 ---
 
 ### STEP-020 - Identity and Access
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -337,7 +337,7 @@ This layer is essential for rangers precisely because they are the only persona 
 ---
 
 ### STEP-040 - Connectivity - Park Administrators (Corporate Network)
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -361,7 +361,7 @@ Note: ExpressRoute provisioning requires 4-8 weeks with a network provider. This
 ---
 
 ### STEP-041 - Connectivity - Park Rangers (Field and Park Sites)
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -381,7 +381,7 @@ The P2S VPN profile restricts ranger devices to specific destination subnets (th
 ---
 
 ### STEP-030 - Internet Edge and Global Routing
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -425,7 +425,7 @@ VWAN's gateways are never in this path. Internet traffic enters the VNet through
 ---
 
 ### STEP-050 - Hub VNet - Centralized Inspection
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -453,7 +453,7 @@ Two Firewall instances per region (Active-Active) ensure the 5-minute RTO is met
 ---
 
 ### STEP-060A - Regional Spoke - Public Web Tier (B2C)
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -477,7 +477,7 @@ Defender for Servers continuously scans every app server for missing patches, vu
 ---
 
 ### STEP-060B - Regional Spoke - Internal App Tier (Admin and Ranger)
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -503,7 +503,7 @@ Separating B2C and admin/ranger workloads onto different subnets with different 
 ---
 
 ### STEP-070 - Regional Spoke - Data Tier
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -542,7 +542,7 @@ This structure is replicated identically across all 12 regional spokes. Each reg
 ---
 
 ### STEP-080 - Security Operations and Governance
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -568,7 +568,7 @@ All controls in STEP-010 through STEP-041 generate signals. This step collects, 
 ---
 
 ### STEP-090 - On-premises and Hybrid Systems
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -594,7 +594,7 @@ Global Parks operates physical infrastructure within park boundaries - visitor c
 ---
 
 ## 6. Scenario Traces
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -606,7 +606,7 @@ Each scenario shows the exact steps traversed and what happens at each one. Use 
 
 <a id="scn-001---public-visitor-accesses-the-globalparks-platform"></a>
 ### SCN-001 - Public Visitor Accesses the GlobalParks Platform
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -630,7 +630,7 @@ A visitor in Singapore opens the GlobalParks app to book a campsite reservation.
 
 <a id="scn-002---park-administrator-accesses-backend-management"></a>
 ### SCN-002 - Park Administrator Accesses Backend Management
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -654,7 +654,7 @@ An administrator at corporate HQ needs to update park capacity limits.
 
 <a id="scn-002b---park-ranger-accesses-backend-from-a-field-office"></a>
 ### SCN-002b - Park Ranger Accesses Backend from a Field Office
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -678,7 +678,7 @@ A ranger at a remote visitor centre marks a trail as closed due to weather.
 
 <a id="scn-003---attacker-attempts-ddos-and-sqli-against-public-endpoints"></a>
 ### SCN-003 - Attacker Attempts DDoS and SQLi Against Public Endpoints
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -695,7 +695,7 @@ A ranger at a remote visitor centre marks a trail as closed due to weather.
 
 <a id="scn-004---cross-region-traffic"></a>
 ### SCN-004 - Cross-Region Traffic (Americas to Europe)
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -712,7 +712,7 @@ A ranger at a remote visitor centre marks a trail as closed due to weather.
 
 <a id="scn-005---soc-investigates-a-multi-stage-attack"></a>
 ### SCN-005 - SOC Investigates a Multi-Stage Attack
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -731,7 +731,7 @@ Sentinel AI Fusion correlates: an Entra ID anomalous sign-in alert, a spike in F
 
 <a id="scn-006---iot-sensor-sends-telemetry-to-azure-iot-hub"></a>
 ### SCN-006 - IoT Sensor Sends Telemetry to Azure IoT Hub
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -752,7 +752,7 @@ A wildlife monitoring camera at a remote trailhead sends a motion-detected event
 
 <a id="scn-007---legacy-park-system-syncs-to-azure-sql"></a>
 ### SCN-007 - Legacy Park System Syncs to Azure SQL
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -773,7 +773,7 @@ An older park's on-premises reservation system performs its nightly sync to Azur
 
 <a id="scn-008---government-agency-accesses-park-data"></a>
 ### SCN-008 - Government Agency Accesses Park Data
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -795,7 +795,7 @@ A national park authority queries visitor statistics via a read-only API.
 
 <a id="scn-009---sydney-visitor-books-a-campsite-at-great-barrier-reef"></a>
 ### SCN-009 - Sydney Visitor Books a Campsite at Great Barrier Reef (Gold Coast, Australia)
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -821,7 +821,7 @@ A visitor in Sydney opens the GlobalParks app to book a campsite at a Great Barr
 
 <a id="scn-010---sydney-visitor-books-a-campsite-at-yosemite-national-park-california-usa"></a>
 ### SCN-010 - Sydney Visitor Books a Campsite at Yosemite National Park (California, USA)
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -848,7 +848,7 @@ The same Sydney visitor now books a campsite at Yosemite NP - a park in Californ
 ---
 
 ## 7. Requirements Traceability Matrix
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -873,7 +873,7 @@ The same Sydney visitor now books a campsite at Yosemite NP - a park in Californ
 ---
 
 ## 8. Architectural Decisions
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -882,7 +882,7 @@ The same Sydney visitor now books a campsite at Yosemite NP - a park in Californ
 ---
 
 ### ADR-001 - Azure Front Door Premium as the Global Edge
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -899,7 +899,7 @@ Front Door Premium combines anycast routing, WAF, bot management, TLS terminatio
 ---
 
 ### ADR-002 - Azure Firewall Premium vs. Third-Party NVA
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -920,7 +920,7 @@ A third-party NVA must be evaluated if any of the following arise from regulator
 ---
 
 ### ADR-003 - ExpressRoute + S2S VPN for Administrators, P2S VPN for Rangers
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -948,7 +948,7 @@ Rangers use P2S because they operate from field locations with no fixed network.
 ---
 
 ### ADR-005 - Internal Application Gateway for the Admin/Ranger Web Tier
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -976,7 +976,7 @@ Additionally, the internal App Gateway provides URL-based routing to separate ad
 ---
 
 ### ADR-004 - VWAN Topology: 12 Separate VWAN Instances vs One Global VWAN with 12 Hubs
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -1003,7 +1003,7 @@ Additionally, the internal App Gateway provides URL-based routing to separate ad
 ---
 
 ## 9. Open Questions
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -1032,7 +1032,7 @@ All questions from prior iterations are now closed.
 ---
 
 ## 10. Revision History
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
@@ -1063,7 +1063,7 @@ The Mermaid source below generates the eight-tier N-tier architecture diagram re
 </details>
 
 ### How to view or export this diagram
-<details>
+<details open>
 <summary>&#9654; Expand</summary>
 
 
