@@ -1,7 +1,10 @@
 # GlobalParks - Cloud Network Security and Management
 ### Detailed Architecture Design
+
 <details open>
+
 <summary></summary>
+
 
 
 | | |
@@ -11,6 +14,7 @@
 | **Operations model** | Central Cloud SRE team |
 | **Status** | v0.4 - Iteration 2 complete |
 | **Last updated** | 2026-03-21 |
+
 
 </details>
 
@@ -38,8 +42,11 @@
 ---
 
 ## 1. Executive Summary
+
 <details open>
+
 <summary></summary>
+
 
 
 GlobalParks is a globally distributed web and mobile platform serving millions of national park visitors, while simultaneously providing secure backend access to park rangers and internal administrators. The platform operates across 12 Azure regions spanning the Americas, Europe, and Asia, and must scale to handle peak visitor traffic from any region in the world. Sensitive reservation and payment data must be completely isolated from the public internet, privileged admin access must be subject to continuous risk-aware verification, and all on-premises park systems must connect securely to the cloud without exposing management interfaces.
@@ -48,11 +55,15 @@ This document describes the network security and management architecture. The de
 
 The architecture uses a **Hub and Spoke Virtual Network topology** across 12 regional Azure Virtual WANs. Public traffic enters via Azure Front Door (a globally distributed edge service with built-in WAF and DDoS protection), is routed to the nearest regional spoke, and passes through a regional Hub Firewall before reaching application or data tiers. Park administrators connect exclusively from the corporate network via ExpressRoute. Rangers in the field connect via VPN. Both paths pass through the Hub Firewall. Backend databases are accessible only via private endpoints with no public IP address. On-premises park systems integrate via ExpressRoute and Azure IoT Hub. Every signal across all tiers is aggregated into Microsoft Sentinel for AI-driven threat detection.
 
+
 </details>
 
 ### 1.1 Glossary and Acronyms
+
 <details>
+
 <summary></summary>
+
 
 
 | Acronym / Term | Full name | Brief description |
@@ -92,13 +103,17 @@ The architecture uses a **Hub and Spoke Virtual Network topology** across 12 reg
 | **XSS** | Cross-Site Scripting | A web attack injecting malicious scripts into a trusted page, exploited to steal session tokens or redirect users |
 | **Zero Trust** | Zero Trust Network Access | A security model that assumes no implicit trust based on network location; every access request is verified for identity, device state, and context |
 
+
 </details>
 
 ---
 
 ## 2. Platform Context and Constraints
+
 <details open>
+
 <summary></summary>
+
 
 
 GlobalParks is being built greenfield on Azure, but it is a hybrid architecture from day one. The Central Cloud SRE team owns the Hub, all shared security infrastructure, and all network policy. Regional IT teams manage application workloads in their Spoke VNets within guardrails enforced by Azure Policy - they cannot deploy resources that violate the security baseline.
@@ -126,31 +141,43 @@ All on-premises traffic - whether from legacy systems, IoT devices, or governmen
 | **Hybrid governance** | Azure Arc extends cloud policy, monitoring, and Defender for Cloud posture to on-premises workloads |
 | **Non-goals (v1)** | Multi-cloud, application code-level security |
 
+
 </details>
 
 ---
 
 ## 3. User Personas
+
 <details open>
+
 <summary></summary>
+
 
 
 Three distinct user types access the GlobalParks platform, each treated as a separate trust domain. The architecture does not share identity infrastructure, network paths, or access controls between them.
 
+
 </details>
 
 ### B2C Visitor (millions of concurrent users)
+
 <details open>
+
 <summary></summary>
+
 
 
 A park visitor opening the GlobalParks app to check trail conditions or book a reservation. They authenticate using a social identity provider - Google, Apple, Microsoft, or email - and expect a fast, seamless experience from wherever they are in the world. Their trust level is low: they are given access only to the public-facing application tier and nothing else. Their traffic path is: social login via Entra External ID, then Azure Front Door for edge inspection, then the regional Hub Firewall, and finally the B2C Web Tier spoke.
 
+
 </details>
 
 ### Park Administrator (privileged - corporate network only)
+
 <details open>
+
 <summary></summary>
+
 
 
 A central administrator who manages park configurations, inventory, and visitor booking data from a corporate office. This persona **must connect only from the corporate network** - direct internet access to the backend is not permitted. Their connectivity path is via Azure ExpressRoute (primary) or VPN Gateway Site-to-Site (backup), both entering through a regional Azure Virtual WAN Hub and the Hub Firewall before reaching any spoke resource.
@@ -162,11 +189,15 @@ A central administrator who manages park configurations, inventory, and visitor 
 - Session frequency: re-authentication required every 8 hours
 - Persistent browser sessions and token caching disabled
 
+
 </details>
 
 ### Park Ranger (privileged - field and park sites)
+
 <details open>
+
 <summary></summary>
+
 
 
 A ranger working at a remote trailhead, park gate, or visitor centre within the park boundary. Rangers need the same backend access as administrators but connect from locations where a fixed corporate network is unavailable. Their connectivity path is Azure VPN Gateway Point-to-Site (P2S) via the regional VWAN Hub, inspected by the Hub Firewall before reaching the application tier.
@@ -185,24 +216,32 @@ A ranger working at a remote trailhead, park gate, or visitor centre within the 
 | Park Administrator | Entra ID + Conditional Access + MFA | ExpressRoute or S2S VPN via VWAN | Privileged; network-restricted | Corporate network only |
 | Park Ranger | Entra ID + Conditional Access + MFA | P2S VPN via VWAN | Privileged; location-flexible | Field offices and park sites |
 
+
 </details>
 
 ---
 
 ## 4. Security Architecture Overview
+
 <details open>
+
 <summary></summary>
 
 
+
 The platform is designed as an eight-tier security architecture, where each tier maps to one or more layers of the OSI model and enforces specific controls. The tiers are traversed in sequence - no tier can be bypassed. This section provides the n-tier diagram, the OSI layer control mapping, and a detailed view of the Security Operations tier.
+
 
 </details>
 
 ---
 
 ### 4.1 N-Tier Architecture Diagram
+
 <details open>
+
 <summary></summary>
+
 
 
 The platform is structured as eight tiers, each mapping to one or more OSI layers, traversed in sequence - no tier can be bypassed. Each tier band carries a `STEP-###` label that links to the full explanation in [Section 5](#5-architecture-walkthrough). Arrows carry `SCN-###` labels linking to [Section 6](#6-scenario-traces) and `REQ-#.#` labels linking to [Section 7](#7-requirements-traceability-matrix).
@@ -211,13 +250,17 @@ The platform is structured as eight tiers, each mapping to one or more OSI layer
 
 **Diagram source and rendering** - The complete Mermaid source is in [Appendix A](#appendix-a---architecture-diagram-mermaid-source). GitHub renders it automatically when this file is viewed online. It can also be pasted into the [Mermaid Live Editor](https://mermaid.live) to export a standalone PNG or SVG.
 
+
 </details>
 
 ---
 
 ### 4.2 OSI Layer Control Mapping
+
 <details open>
+
 <summary></summary>
+
 
 
 The table below provides a direct mapping: for each OSI layer, the specific threats that can occur at that layer, the exact Azure service that blocks or detects them, and how the control works.
@@ -232,13 +275,17 @@ The table below provides a direct mapping: for each OSI layer, the specific thre
 | **L2 - Data Link** | VLAN hopping, MAC spoofing (mitigated by Azure software-defined fabric), ARP poisoning | Azure VNet (software-defined network - no raw L2 access), ExpressRoute (dedicated VLAN-based private peering circuits) | Azure VNet abstracts L2 - tenants cannot inject L2 frames or spoof MACs; ExpressRoute uses BGP over dedicated VLANs |
 | **L1 - Physical** | Physical access to infrastructure, cable tapping, hardware compromise | Azure datacenter physical security (ISO 27001 certified), ExpressRoute dedicated fibre circuits, Microsoft global backbone isolation | Microsoft controls physical access; ExpressRoute fibres are dedicated circuits not shared with other customers |
 
+
 </details>
 
 ---
 
 ### 4.3 Security Detection and Prevention by Tier
+
 <details open>
+
 <summary></summary>
+
 
 
 The table below maps each tier to the specific Azure services that provide detection and prevention at that layer. For the Security Operations signal-to-response flow diagram, see [Appendix B](#appendix-b---step-080-security-operations-detail-diagram).
@@ -268,24 +315,32 @@ The table below maps each tier to the specific Azure services that provide detec
 | T8 - On-premises | STEP-090 | Azure Arc | Hybrid resource posture; Defender for Servers on on-premises VMs | Policy and governance extended to on-premises workloads |
 | T8 - On-premises | STEP-090 | Azure IoT Hub | Device identity anomalies, telemetry integrity | X.509 certificate device authentication; per-device policy enforcement |
 
+
 </details>
 
 ---
 
 ## 5. Architecture Walkthrough
+
 <details open>
+
 <summary></summary>
 
 
+
 This section walks through each step in the order a request travels through the system. Click any `SCN-###` reference to jump to the full scenario trace in [Section 6](#6-scenario-traces). Click any `REQ-#.#` reference to jump to the traceability matrix in [Section 7](#7-requirements-traceability-matrix).
+
 
 </details>
 
 ---
 
 ### STEP-010 - Users and Personas
+
 <details open>
+
 <summary></summary>
+
 
 
 Every request into GlobalParks begins with a person and a device. The persona type is the architectural branching point - a B2C visitor, a park administrator, and a park ranger take completely different network paths, use different identity systems, and are subject to different controls. Separating these paths at the architectural level means a compromise of a consumer credential cannot share infrastructure with privileged admin sessions.
@@ -297,13 +352,17 @@ Every request into GlobalParks begins with a person and a device. The persona ty
 | **Azure services** | Logical entry point - no Azure service at this step |
 | **Owner** | SRE (architecture), Identity team (policy) |
 
+
 </details>
 
 ---
 
 ### STEP-020 - Identity and Access
+
 <details open>
+
 <summary></summary>
+
 
 
 Before any traffic reaches a network endpoint, identity must be verified. This is the logical perimeter of the architecture - the security boundary is drawn not by a firewall rule but by a verified identity claim. Identity verification is the first mandatory gate for every persona.
@@ -332,13 +391,17 @@ This layer is essential for rangers precisely because they are the only persona 
 | **Azure services** | Microsoft Entra External ID (B2C), Microsoft Entra ID, Conditional Access policies, Entra ID Protection |
 | **Owner** | Identity team (policies), SRE (integration) |
 
+
 </details>
 
 ---
 
 ### STEP-040 - Connectivity - Park Administrators (Corporate Network)
+
 <details open>
+
 <summary></summary>
+
 
 
 Park Administrators are restricted to the corporate network at the network layer - not just by policy. The architecture enforces this by ensuring no admin-facing endpoint is reachable from the public internet.
@@ -356,13 +419,17 @@ Note: ExpressRoute provisioning requires 4-8 weeks with a network provider. This
 | **Azure services** | Azure ExpressRoute, Azure Virtual WAN, VPN Gateway (S2S), Entra ID Conditional Access |
 | **Owner** | Network team (circuits and gateway), SRE (routing, Firewall rules) |
 
+
 </details>
 
 ---
 
 ### STEP-041 - Connectivity - Park Rangers (Field and Park Sites)
+
 <details open>
+
 <summary></summary>
+
 
 
 Park Rangers connect from field locations via **Azure VPN Gateway Point-to-Site (P2S)**, authenticated using their Entra ID credentials. P2S traffic is now routed through the regional **Azure Virtual WAN** Hub (User VPN configuration), ensuring consistent routing policy and scale parity with the administrator path. This means all three privileged connectivity paths - ExpressRoute, S2S VPN, and P2S VPN - converge at VWAN before the Hub Firewall.
@@ -376,13 +443,17 @@ The P2S VPN profile restricts ranger devices to specific destination subnets (th
 | **Azure services** | VPN Gateway P2S (VWAN User VPN), Entra ID authentication, Azure Firewall (Hub inspection) |
 | **Owner** | Network team (gateway and VPN profile), SRE (Firewall rules, access policy) |
 
+
 </details>
 
 ---
 
 ### STEP-030 - Internet Edge and Global Routing
+
 <details open>
+
 <summary></summary>
+
 
 
 This is the outermost security layer. Three controls work together: geo-routing to the nearest regional datacenter, volumetric attack absorption, and application-layer payload inspection - all before any request enters Azure compute.
@@ -420,13 +491,17 @@ VWAN's gateways are never in this path. Internet traffic enters the VNet through
 | **Azure services** | Azure Front Door Premium, Azure WAF (DRS + custom rules), Azure DDoS Protection Standard |
 | **Owner** | SRE (WAF policy tuning), Network team (DDoS plan) |
 
+
 </details>
 
 ---
 
 ### STEP-050 - Hub VNet - Centralized Inspection
+
 <details open>
+
 <summary></summary>
+
 
 
 The Hub is the mandatory choke point through which all traffic in the platform must pass - whether it is a visitor request arriving from Front Door, an admin session via ExpressRoute, a ranger session via P2S VPN, cross-spoke traffic, or on-premises integration traffic. This is the direct implementation of [REQ-4.1](#7-requirements-traceability-matrix). All spoke VNets peer to the Hub. User-Defined Routes (UDRs) on every spoke subnet redirect all traffic to the Azure Firewall's private IP before it can go anywhere.
@@ -448,13 +523,17 @@ Two Firewall instances per region (Active-Active) ensure the 5-minute RTO is met
 | **Azure services** | Azure Firewall Premium (2x per region, Active-Active), VNet Peering, UDRs, Azure Firewall Manager, Azure Firewall Policy (GitOps-managed) |
 | **Owner** | SRE / Global Security Team |
 
+
 </details>
 
 ---
 
 ### STEP-060A - Regional Spoke - Public Web Tier (B2C)
+
 <details open>
+
 <summary></summary>
+
 
 
 This separation is implemented as dedicated Spoke VNets - not merely separate subnets within a shared VNet. Each region has two Spoke VNets: a B2C public spoke and an Admin/Ranger private spoke, resulting in 24 Spoke VNets across the 12-region deployment. Two separate VNets provide a stronger blast radius boundary than subnets: a VNet-level compromise cannot cross VNet boundaries without explicit, audited peering rules.
@@ -472,13 +551,17 @@ Defender for Servers continuously scans every app server for missing patches, vu
 | **Azure services** | Azure Application Gateway (WAF v2), NSG, ASG (asg-b2c-web), regional Spoke VNet, Defender for Servers |
 | **Owner** | Regional IT (workloads), SRE (NSG baselines via Azure Policy) |
 
+
 </details>
 
 ---
 
 ### STEP-060B - Regional Spoke - Internal App Tier (Admin and Ranger)
+
 <details open>
+
 <summary></summary>
+
 
 
 Admin and Ranger traffic exits the Hub Firewall into a dedicated **internal Application Gateway with WAF v2** before reaching the internal app subnet. This internal App Gateway is deployed on a private subnet with no public frontend IP - it is reachable only from the Hub Firewall's private IP range. It performs three functions: URL-based routing to direct admin and ranger API requests to the appropriate backend pools; TLS termination and re-encryption within the internal network; and a second WAF layer (App Gateway WAF v2 with OWASP DRS) specifically tuned for internal management API traffic.
@@ -498,13 +581,17 @@ Separating B2C and admin/ranger workloads onto different subnets with different 
 | **Azure services** | Azure Application Gateway (WAF v2, internal, no public IP), NSG (allow Hub Firewall source only on AGW subnet; allow internal AGW source only on app subnet), ASG (asg-admin-app), regional Spoke VNet, Defender for Servers |
 | **Owner** | Regional IT (workloads), SRE (NSG baselines, WAF policy tuning) |
 
+
 </details>
 
 ---
 
 ### STEP-070 - Regional Spoke - Data Tier
+
 <details open>
+
 <summary></summary>
+
 
 
 The Data Tier holds all sensitive data and is completely invisible to the public internet. This is achieved via **Azure Private Endpoints** ([REQ-3.3](#7-requirements-traceability-matrix)), which inject a virtual NIC with a private IP directly into the Data Tier subnet. The database's public endpoint is disabled entirely. There is no public IP, no public DNS record resolving to a reachable address.
@@ -537,13 +624,17 @@ This structure is replicated identically across all 12 regional spokes. Each reg
 | **Azure services** | Azure Private Endpoints, Azure SQL (geo-replicated), Azure Cosmos DB (multi-region write), NSG, Azure Private DNS Zones, Defender for SQL |
 | **Owner** | Data team (DB config), Network team (Private DNS), SRE (NSG policy) |
 
+
 </details>
 
 ---
 
 ### STEP-080 - Security Operations and Governance
+
 <details open>
+
 <summary></summary>
+
 
 
 All controls in STEP-010 through STEP-041 generate signals. This step collects, correlates, and acts on those signals. The SOC and SRE team need a single view of the entire platform across all 12 regions with the ability to detect sophisticated multi-stage attacks that no single alert would surface. See [Appendix B](#appendix-b---step-080-security-operations-detail-diagram) for the full operational diagram.
@@ -563,13 +654,17 @@ All controls in STEP-010 through STEP-041 generate signals. This step collects, 
 | **Azure services** | Microsoft Sentinel, Defender for Cloud (CSPM, Defender for Servers, Defender for SQL), Azure Monitor, Log Analytics, Azure Policy, Azure Network Watcher, Azure Firewall Manager (GitOps) |
 | **Owner** | SOC / SRE (Sentinel rules, Playbooks), Security Architect (Defender policy), SRE (Policy baselines, GitOps pipeline) |
 
+
 </details>
 
 ---
 
 ### STEP-090 - On-premises and Hybrid Systems
+
 <details open>
+
 <summary></summary>
+
 
 
 Global Parks operates physical infrastructure within park boundaries - visitor centres, entry gates, and remote monitoring stations - that cannot be fully migrated to cloud in the initial phase. These systems must integrate securely with the Azure platform without exposing any management interface to the public internet. All on-premises traffic enters the platform through the Hub Firewall via the VWAN Hub.
@@ -589,16 +684,21 @@ Global Parks operates physical infrastructure within park boundaries - visitor c
 | **Azure services** | Azure ExpressRoute (on-prem primary), Azure IoT Hub, Azure Arc, Azure Data Factory, Azure Event Hubs, Azure Stream Analytics |
 | **Owner** | Network team (circuits), SRE (Arc enrollment, IoT Hub), Data team (Data Factory pipelines) |
 
+
 </details>
 
 ---
 
 ## 6. Scenario Traces
+
 <details open>
+
 <summary></summary>
 
 
+
 Each scenario shows the exact steps traversed and what happens at each one. Use the back-links at the end of each scenario to return to the step detail in Section 5.
+
 
 </details>
 
@@ -606,8 +706,11 @@ Each scenario shows the exact steps traversed and what happens at each one. Use 
 
 <a id="scn-001---public-visitor-accesses-the-globalparks-platform"></a>
 ### SCN-001 - Public Visitor Accesses the GlobalParks Platform
+
 <details open>
+
 <summary></summary>
+
 
 
 A visitor in Singapore opens the GlobalParks app to book a campsite reservation.
@@ -624,14 +727,18 @@ A visitor in Singapore opens the GlobalParks app to book a campsite reservation.
 
 [Back to STEP-010](#step-010---users-and-personas) | [Back to STEP-030](#step-030---internet-edge-and-global-routing)
 
+
 </details>
 
 ---
 
 <a id="scn-002---park-administrator-accesses-backend-management"></a>
 ### SCN-002 - Park Administrator Accesses Backend Management
+
 <details open>
+
 <summary></summary>
+
 
 
 An administrator at corporate HQ needs to update park capacity limits.
@@ -648,14 +755,18 @@ An administrator at corporate HQ needs to update park capacity limits.
 
 [Back to STEP-020](#step-020---identity-and-access) | [Back to STEP-040](#step-040---connectivity---park-administrators-corporate-network)
 
+
 </details>
 
 ---
 
 <a id="scn-002b---park-ranger-accesses-backend-from-a-field-office"></a>
 ### SCN-002b - Park Ranger Accesses Backend from a Field Office
+
 <details open>
+
 <summary></summary>
+
 
 
 A ranger at a remote visitor centre marks a trail as closed due to weather.
@@ -672,14 +783,18 @@ A ranger at a remote visitor centre marks a trail as closed due to weather.
 
 [Back to STEP-020](#step-020---identity-and-access) | [Back to STEP-041](#step-041---connectivity---park-rangers-field-and-park-sites)
 
+
 </details>
 
 ---
 
 <a id="scn-003---attacker-attempts-ddos-and-sqli-against-public-endpoints"></a>
 ### SCN-003 - Attacker Attempts DDoS and SQLi Against Public Endpoints
+
 <details open>
+
 <summary></summary>
+
 
 
 1. **STEP-030** - Volumetric flood absorbed by Front Door PoP network. DDoS Protection Standard activates mitigation. WAF detects SQLi payload in query string and returns HTTP 403. Malicious requests never reach the Hub or any spoke.
@@ -689,14 +804,18 @@ A ranger at a remote visitor centre marks a trail as closed due to weather.
 
 [Back to STEP-030](#step-030---internet-edge-and-global-routing)
 
+
 </details>
 
 ---
 
 <a id="scn-004---cross-region-traffic"></a>
 ### SCN-004 - Cross-Region Traffic (Americas to Europe)
+
 <details open>
+
 <summary></summary>
+
 
 
 1. **STEP-050** - Traffic leaving the Americas spoke is directed to the Hub Firewall by the UDR. Azure Firewall performs deep packet inspection. Allowed traffic is forwarded to the Europe VWAN Hub and onward to the Europe spoke. Denied traffic is dropped and logged.
@@ -706,14 +825,18 @@ A ranger at a remote visitor centre marks a trail as closed due to weather.
 
 [Back to STEP-050](#step-050---hub-vnet---centralized-inspection)
 
+
 </details>
 
 ---
 
 <a id="scn-005---soc-investigates-a-multi-stage-attack"></a>
 ### SCN-005 - SOC Investigates a Multi-Stage Attack
+
 <details open>
+
 <summary></summary>
+
 
 
 Sentinel AI Fusion correlates: an Entra ID anomalous sign-in alert, a spike in Firewall IDPS hits from the same session, and an unusual bulk query to Azure SQL detected by Defender for SQL - all within 20 minutes.
@@ -725,14 +848,18 @@ Sentinel AI Fusion correlates: an Entra ID anomalous sign-in alert, a spike in F
 
 [Back to STEP-080](#step-080---security-operations-and-governance)
 
+
 </details>
 
 ---
 
 <a id="scn-006---iot-sensor-sends-telemetry-to-azure-iot-hub"></a>
 ### SCN-006 - IoT Sensor Sends Telemetry to Azure IoT Hub
+
 <details open>
+
 <summary></summary>
+
 
 
 A wildlife monitoring camera at a remote trailhead sends a motion-detected event.
@@ -746,14 +873,18 @@ A wildlife monitoring camera at a remote trailhead sends a motion-detected event
 
 [Back to STEP-090](#step-090---on-premises-and-hybrid-systems)
 
+
 </details>
 
 ---
 
 <a id="scn-007---legacy-park-system-syncs-to-azure-sql"></a>
 ### SCN-007 - Legacy Park System Syncs to Azure SQL
+
 <details open>
+
 <summary></summary>
+
 
 
 An older park's on-premises reservation system performs its nightly sync to Azure SQL.
@@ -767,14 +898,18 @@ An older park's on-premises reservation system performs its nightly sync to Azur
 
 [Back to STEP-090](#step-090---on-premises-and-hybrid-systems)
 
+
 </details>
 
 ---
 
 <a id="scn-008---government-agency-accesses-park-data"></a>
 ### SCN-008 - Government Agency Accesses Park Data
+
 <details open>
+
 <summary></summary>
+
 
 
 A national park authority queries visitor statistics via a read-only API.
@@ -789,14 +924,18 @@ A national park authority queries visitor statistics via a read-only API.
 
 [Back to STEP-090](#step-090---on-premises-and-hybrid-systems)
 
+
 </details>
 
 ---
 
 <a id="scn-009---sydney-visitor-books-a-campsite-at-great-barrier-reef"></a>
 ### SCN-009 - Sydney Visitor Books a Campsite at Great Barrier Reef (Gold Coast, Australia)
+
 <details open>
+
 <summary></summary>
+
 
 
 A visitor in Sydney opens the GlobalParks app to book a campsite at a Great Barrier Reef park near Gold Coast. Visitor and park are in the same geography.
@@ -815,14 +954,18 @@ A visitor in Sydney opens the GlobalParks app to book a campsite at a Great Barr
 
 [Back to STEP-030](#step-030---internet-edge-and-global-routing) | [Back to STEP-070](#step-070---regional-spoke---data-tier)
 
+
 </details>
 
 ---
 
 <a id="scn-010---sydney-visitor-books-a-campsite-at-yosemite-national-park-california-usa"></a>
 ### SCN-010 - Sydney Visitor Books a Campsite at Yosemite National Park (California, USA)
+
 <details open>
+
 <summary></summary>
+
 
 
 The same Sydney visitor now books a campsite at Yosemite NP - a park in California, USA. Visitor and park are on different continents. This scenario illustrates how the architecture handles cross-region scenarios transparently for the visitor.
@@ -843,13 +986,17 @@ The same Sydney visitor now books a campsite at Yosemite NP - a park in Californ
 
 [Back to STEP-030](#step-030---internet-edge-and-global-routing) | [Back to STEP-070](#step-070---regional-spoke---data-tier)
 
+
 </details>
 
 ---
 
 ## 7. Requirements Traceability Matrix
+
 <details open>
+
 <summary></summary>
+
 
 
 [Back to Section 5](#5-architecture-walkthrough)
@@ -868,13 +1015,18 @@ The same Sydney visitor now books a campsite at Yosemite NP - a park in Californ
 | REQ-4.2 | Continuous posture scanning against compliance standards | Epic 4 - Governance | Microsoft Defender for Cloud (CSPM + PCI-DSS, GDPR, ISO 27001, NIST) | [STEP-080](#step-080---security-operations-and-governance) |
 | REQ-4.3 | All telemetry into central AI-driven SIEM/SOAR | Epic 4 - Governance | Microsoft Sentinel + Log Analytics + Logic App Playbooks | [STEP-080](#step-080---security-operations-and-governance) |
 
+
 </details>
 
 ---
 
 ## 8. Architectural Decisions
+
 <details open>
+
 <summary></summary>
+
+
 
 
 </details>
@@ -882,8 +1034,11 @@ The same Sydney visitor now books a campsite at Yosemite NP - a park in Californ
 ---
 
 ### ADR-001 - Azure Front Door Premium as the Global Edge
+
 <details open>
+
 <summary></summary>
+
 
 
 **Status:** Accepted
@@ -894,13 +1049,17 @@ Traffic Manager is a DNS-based load balancer. It routes by geography at the DNS 
 
 Front Door Premium combines anycast routing, WAF, bot management, TLS termination, and DDoS absorption into a single globally managed service. One WAF policy applies across all PoPs simultaneously. Traffic Manager remains relevant only for non-HTTP workloads (e.g. raw TCP, non-web APIs) - GlobalParks has none of these in scope for v1, so Traffic Manager is explicitly excluded from this architecture.
 
+
 </details>
 
 ---
 
 ### ADR-002 - Azure Firewall Premium vs. Third-Party NVA
+
 <details open>
+
 <summary></summary>
+
 
 
 **Status:** Azure Firewall Premium for v1. NVA evaluation triggered if any condition below is confirmed.
@@ -915,13 +1074,17 @@ A third-party NVA must be evaluated if any of the following arise from regulator
 - Single Hub Firewall throughput exceeds 10 Gbps (two instances per region mitigates this for most workloads)
 - Advanced SD-WAN or BGP policy requirements exceed VWAN capabilities
 
+
 </details>
 
 ---
 
 ### ADR-003 - ExpressRoute + S2S VPN for Administrators, P2S VPN for Rangers
+
 <details open>
+
 <summary></summary>
+
 
 
 **Status:** Accepted
@@ -943,13 +1106,17 @@ ExpressRoute is primary because it provides guaranteed bandwidth, predictable la
 
 Rangers use P2S because they operate from field locations with no fixed network. P2S with Entra ID authentication ties network access to the same identity verified by Conditional Access. All P2S traffic routes through VWAN, consistent with the admin path.
 
+
 </details>
 
 ---
 
 ### ADR-005 - Internal Application Gateway for the Admin/Ranger Web Tier
+
 <details open>
+
 <summary></summary>
+
 
 
 **Status:** Accepted (Iteration 3)
@@ -971,13 +1138,17 @@ Additionally, the internal App Gateway provides URL-based routing to separate ad
 
 **Conclusion:** The additional cost and operational overhead is justified by the elevated risk profile of the admin/ranger application tier. A management API compromise would expose park configuration, financial data, and operational controls. WAF on the internal path is the same defence-in-depth principle already applied on the B2C path, applied consistently to the privileged path.
 
+
 </details>
 
 ---
 
 ### ADR-004 - VWAN Topology: 12 Separate VWAN Instances vs One Global VWAN with 12 Hubs
+
 <details open>
+
 <summary></summary>
+
 
 
 **Status:** Decision: 12 separate VWAN instances (one per region). Tradeoffs documented below.
@@ -998,13 +1169,17 @@ Additionally, the internal App Gateway provides URL-based routing to separate ad
 
 **Implication for SCN-004 (cross-region traffic):** With 12 separate VWANs, cross-region traffic between spokes (e.g. Americas to Europe) cannot use VWAN's automatic hub-to-hub routing. Explicit site-to-site connections between regional VWAN Hubs must be configured and maintained. This adds operational complexity and should be documented in the network design for each region pair that requires cross-region communication.
 
+
 </details>
 
 ---
 
 ## 9. Open Questions
+
 <details open>
+
 <summary></summary>
+
 
 
 All questions from prior iterations are now closed.
@@ -1027,13 +1202,17 @@ All questions from prior iterations are now closed.
 | Q-09 | Which region pairs need cross-region routing (SCN-004)? | With 12 separate VWANs (ADR-004), explicit S2S connections are needed for each cross-region pair - must be scoped before network design is finalised | Network team |
 | Q-10 | Which legacy park systems are in scope for STEP-090? | Drives ExpressRoute site count, Data Factory pipeline design, and Azure Arc enrollment scope | Data team / Park IT |
 
+
 </details>
 
 ---
 
 ## 10. Revision History
+
 <details open>
+
 <summary></summary>
+
 
 
 | Version | Date | Summary of changes |
@@ -1049,22 +1228,30 @@ All questions from prior iterations are now closed.
 | 0.8 | 2026-03-21 | Section 4.1 Mermaid diagram moved to Appendix A; Section 4.1 replaced with description and links to interactive HTML and Appendix A; Appendix A added with rendering instructions and full Mermaid source |
 | 0.5 | 2026-03-21 | Iteration 3 - Section 2 rewritten as hybrid architecture with on-premises constraint rows added; STEP-020 risk-based Conditional Access fully explained (High block / Medium step-up MFA); STEP-050 VWAN Routing Intent documented as the Tier 3 firewall enforcement mechanism; STEP-060B rewritten with internal App Gateway (ADMINAGW, WAF v2, no public IP) added to admin/ranger path; Section 4.1 Mermaid updated with ADMINAGW; SCN-002, SCN-002b, SCN-008 traces updated to reflect internal AGW hop; ADR-005 added (internal App Gateway for admin/ranger tier); interactive HTML updated with ADMINAGW, OSI Layer filter (L1-L7), auto-scroll to highlighted section, back-to-top button |
 
+
 </details>
 
 ---
 
 ## Appendix A - Architecture Diagram (Mermaid Source)
+
 <details open>
+
 <summary></summary>
+
 
 
 The Mermaid source below generates the eight-tier N-tier architecture diagram referenced in [Section 4.1](#41-n-tier-architecture-diagram). Each tier corresponds to a `STEP-###` in [Section 5](#5-architecture-walkthrough).
 
+
 </details>
 
 ### How to view or export this diagram
+
 <details open>
+
 <summary></summary>
+
 
 
 | Method | How |
@@ -1074,6 +1261,7 @@ The Mermaid source below generates the eight-tier N-tier architecture diagram re
 | **Mermaid Live Editor** | Copy the code block below and paste it at [mermaid.live](https://mermaid.live). Export as PNG or SVG for use in presentations or other documents. |
 | **VS Code / Cursor** | Install the [Markdown Preview Mermaid Support](https://marketplace.visualstudio.com/items?itemName=bierner.markdown-mermaid) extension. Open the Markdown preview pane to see the rendered diagram alongside the document. |
 | **mermaid-cli (CI/CD)** | Run `mmdc -i DESIGN.md -o architecture.png` to generate a PNG as part of a documentation pipeline. Requires Node.js and `@mermaid-js/mermaid-cli`. |
+
 
 </details>
 
@@ -1187,8 +1375,11 @@ flowchart TB
 ---
 
 ## Appendix B - STEP-080 Security Operations Detail Diagram
+
 <details open>
+
 <summary></summary>
+
 
 
 The diagram below shows the full signal-to-response flow for the Security Operations tier referenced in [Section 4.3](#43-security-detection-and-prevention-by-tier) and [STEP-080](#step-080---security-operations-and-governance).
@@ -1244,5 +1435,6 @@ flowchart LR
 
     GITOPS -.->|"Policy as code"| POLICY
 ```
+
 </details>
 
