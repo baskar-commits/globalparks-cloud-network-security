@@ -34,6 +34,16 @@
 
 ## 1. Executive Summary
 
+> **Interactive Architecture Visualization**
+> As you read through this document, keep the live diagram open alongside it.
+> Each `STEP-###`, `SCN-###`, and `REQ-#.#` reference in the text maps directly to a highlighted node in the diagram.
+>
+> **[Open azure-networking-flowchart.html →](https://baskar-commits.github.io/globalparks-cloud-network-security/azure-networking-flowchart.html)**
+>
+> Use the **Tier**, **Step**, **Scenario**, **Requirement**, and **OSI Layer** filter tabs to highlight the relevant components, or step through the **Walkthrough** mode for SCN-009 and SCN-010 to see end-to-end visitor flows animated node by node.
+
+---
+
 GlobalParks is a globally distributed web and mobile platform serving millions of national park visitors, while simultaneously providing secure backend access to park rangers and internal administrators. The platform operates across 12 Azure regions spanning the Americas, Europe, and Asia, and must scale to handle peak visitor traffic from any region in the world. Sensitive reservation and payment data must be completely isolated from the public internet, privileged admin access must be subject to continuous risk-aware verification, and all on-premises park systems must connect securely to the cloud without exposing management interfaces.
 
 This document describes the network security and management architecture. The design is built on three foundational principles. First, **Zero Trust**: no request is trusted by virtue of its origin; every access decision is grounded in verified identity, device state, and contextual signals. Second, **defence in depth**: security controls are layered so that the failure of any single control does not expose the platform. Third, **central governance with regional workload isolation**: a Central SRE team owns the security hub, while regional teams manage application workloads in isolated spoke networks.
