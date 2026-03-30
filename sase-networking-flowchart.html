@@ -200,7 +200,7 @@
 <div class="page-wrap" id="page-top">
     <div class="page-header">
         <h1>GlobalParks - SASE Network Security Architecture</h1>
-        <p>SASE-DESIGN.md&nbsp;v1.4&nbsp;&nbsp;&#183;&nbsp;&nbsp;Filter highlights nodes across both diagrams&nbsp;&nbsp;&#183;&nbsp;&nbsp;&#9670;&nbsp;SASE&nbsp;vs&nbsp;Azure-native diff tab shows what changed&nbsp;&nbsp;&#183;&nbsp;&nbsp;&#9654;&nbsp;Walkthrough traces SASE-specific scenarios step by step&nbsp;&nbsp;&#183;&nbsp;&nbsp;Press <kbd>Esc</kbd> to reset</p>
+        <p>SASE-DESIGN.md&nbsp;v1.5&nbsp;&nbsp;&#183;&nbsp;&nbsp;Filter highlights nodes across both diagrams&nbsp;&nbsp;&#183;&nbsp;&nbsp;&#9670;&nbsp;SASE&nbsp;vs&nbsp;Azure-native diff tab shows what changed&nbsp;&nbsp;&#183;&nbsp;&nbsp;&#9654;&nbsp;Walkthrough traces SASE-specific scenarios step by step&nbsp;&nbsp;&#183;&nbsp;&nbsp;Admin vs ZTNA trade-off in doc &#167;3&nbsp;&nbsp;&#183;&nbsp;&nbsp;Press <kbd>Esc</kbd> to reset</p>
         <div class="legend">
             <span class="legend-item"><span class="legend-dot" style="background:var(--sase)"></span> New in SASE (replaces Azure-native component)</span>
             <span class="legend-item"><span class="legend-dot" style="background:var(--green)"></span> Unchanged from Azure-native</span>
@@ -216,7 +216,7 @@
         <div class="card-header">
             <span class="card-tag">Section 4.1</span>
             <span class="card-title">SASE N-Tier Architecture - 8 Tiers &amp; SASE PoP replacing Hub VNets &amp; Azure Firewall</span>
-            <span class="card-meta">Tier 3 = SASE PoPs &nbsp;|&nbsp; Tier 4 = Private Access Connector &nbsp;|&nbsp; B2C path goes direct Front Door &#8594; App Gateway</span>
+            <span class="card-meta">Tier 3 = SASE PoPs &nbsp;|&nbsp; Tier 4 = Private Access Connector &nbsp;|&nbsp; B2C path goes direct Front Door &#8594; App Gateway &nbsp;|&nbsp; Admin baseline = SD-WAN without per-user GSA (trade-off in SASE-DESIGN &#167;3)</span>
         </div>
         <div class="diagram-wrap">
             <pre class="mermaid">
@@ -225,7 +225,7 @@ flowchart TB
     subgraph T0["Tier 0 - STEP-010 - External Users and Devices"]
         direction LR
         VISITOR["B2C Visitors\nPublic internet - no SASE agent"]
-        CORPUSER["Park Administrators\nCorporate office - SD-WAN appliance"]
+        CORPUSER["Park Administrators\nCorporate office - SD-WAN appliance\nBaseline: no per-user GSA - see Section 3 trade-off"]
         RANGER["Park Rangers\nField device - GSA ZTNA agent"]
     end
     subgraph T1["Tier 1 - STEP-030 - Internet Edge B2C only (OSI L3-L7) - UNCHANGED"]
@@ -408,7 +408,7 @@ const WALKS = {
     badge: 'SCN-002',
     steps: [
       { title: 'Park Administrator at corporate office', nodes: ['CORPUSER'],
-        desc: 'An administrator at corporate HQ needs to update park capacity limits. Their corporate office has an SD-WAN appliance. No VPN client is installed on the admin\'s device. No ExpressRoute circuit is provisioned. DIFFERENCE: In Azure-native, admin needed a P2S or S2S VPN client and ExpressRoute was the primary path.' },
+        desc: 'An administrator at corporate HQ needs to update park capacity limits. Their corporate office has an SD-WAN appliance. Baseline design: no GSA/ZTNA client on the admin laptop—traffic is steered to the SASE PoP by the site SD-WAN; Entra ID + Conditional Access and PoP + connector still enforce published apps. TRADE-OFF: This optimizes branch ingress and avoids a second agent; it does not give the same endpoint app-level segmentation as rangers. Optional hardening: deploy GSA on privileged admins, LAN micro-segmentation, or PAW (SASE-DESIGN Section 3, Q-S09). DIFFERENCE vs Azure-native: no P2S/S2S VPN client or ExpressRoute as primary admin path.' },
       { title: 'Entra ID sign-in + Conditional Access gate', nodes: ['ADMINID'],
         desc: 'Admin signs in to Entra ID. Conditional Access evaluates: device is Intune-compliant, sign-in risk is Low, location matches corporate IP range, MFA completed. Entra Private Access ZTNA session is established as the app-access gate. UNCHANGED: Conditional Access policies are identical to Azure-native.' },
       { title: 'SD-WAN routes to nearest SASE PoP', nodes: ['SDWAN','SASEPOP'],
@@ -490,18 +490,18 @@ const DIAG2_NODES = ['FWLOG','WAFLOG','SWGLOG','CASBLOG','NSGLOG','DEFLOG','IDLO
 
 const FD = {
   tier: [
-    { id:'T0', label:'Tier 0', step:'STEP-010', subtitle:'External Users - GSA agent for Rangers',
+    { id:'T0', label:'Tier 0', step:'STEP-010', subtitle:'External Users - GSA for Rangers; SD-WAN baseline for Admins',
       nodes:['VISITOR','CORPUSER','RANGER'], changeType:'changed',
-      desc:'Same 3 personas. Difference: Rangers have GSA ZTNA agent instead of Azure VPN client. Admins use SD-WAN-connected corporate office instead of ExpressRoute.',
-      diff:'vs. Azure-native: Azure VPN client → GSA ZTNA agent; ExpressRoute circuit → SD-WAN appliance at office.' },
+      desc:'Same 3 personas. Rangers: GSA ZTNA agent instead of Azure VPN client. Admins: SD-WAN at corporate office instead of ExpressRoute; baseline has no per-user GSA—private apps still use PoP + connector. TRADE-OFF: Optional GSA on admins or LAN controls for defense in depth (SASE-DESIGN Section 3).',
+      diff:'vs. Azure-native: Azure VPN client → GSA ZTNA agent; ExpressRoute circuit → SD-WAN appliance at office. Admin GSA optional—documented trade-off.' },
     { id:'T1', label:'Tier 1', step:'STEP-030', subtitle:'Internet Edge - UNCHANGED (B2C only)',
       nodes:['AFD','WAF','DDOS'], changeType:'same',
       desc:'Azure Front Door Premium, WAF (OWASP DRS), and DDoS Protection Standard are completely unchanged. SASE does not apply to B2C public internet traffic - B2C visitors have no SASE agent or corporate identity.',
       diff:'vs. Azure-native: UNCHANGED. B2C internet edge is not affected by SASE.' },
-    { id:'T2', label:'Tier 2', step:'STEP-020', subtitle:'Identity + Entra Private Access (ZTNA)',
+    { id:'T2', label:'Tier 2', step:'STEP-020', subtitle:'Identity + Entra Private Access (ZTNA connector)',
       nodes:['B2CID','ADMINID','EPA'], changeType:'changed',
-      desc:'Entra ID + Conditional Access is unchanged - identity is the SASE control plane. NEW: Entra Private Access (ZTNA) added as the app-level access enforcement gate for admins and rangers.',
-      diff:'vs. Azure-native: +Entra Private Access ZTNA replaces VPN tunnel as app-access gate. Conditional Access policies identical.' },
+      desc:'Entra ID + Conditional Access unchanged—identity is the SASE control plane. Entra Private Access (connector + published apps) enforces app-level paths to Azure for traffic through the PoP. Rangers use a GSA ZTNA client session; admins (baseline) attach via SD-WAN without mandatory GSA—optional GSA for same endpoint model (Section 3 trade-off).',
+      diff:'vs. Azure-native: +Entra Private Access ZTNA replaces VPN tunnel as app-access gate. Conditional Access aligned; admin per-user GSA optional.' },
     { id:'T3', label:'Tier 3', step:'STEP-040/041', subtitle:'SASE PoP Layer - NEW (replaces VWAN + VPN Gateways)',
       nodes:['SASEPOP','SDWAN','SWG','CASB','RBI'], changeType:'new',
       desc:'All new. SASE PoPs (100+ globally) replace 12 VWAN instances + 24 VPN Gateways. FWaaS at PoP provides IDPS, TLS inspection, threat intelligence. SD-WAN replaces ExpressRoute for branches. SWG handles internet access. CASB controls SaaS. RBI (partner-required) executes risky external pages in a cloud browser container - device never runs the web content.',
@@ -539,7 +539,7 @@ const FD = {
       desc:'B2C path largely unchanged. Front Door WAF → App Gateway WAF v2 → Data tier. DIFFERENCE: Hub Firewall IDPS hop removed - Front Door connects directly to App Gateway via Private Link. App Gateway WAF v2 is now the first Azure-side inspection layer.' },
     { id:'SCN-002', subtitle:'Admin via SD-WAN + SASE PoP (replaces ER + VWAN)',
       nodes:['CORPUSER','ADMINID','SDWAN','SASEPOP','PACONN','ADMINAGW','ADMINNSG','ADMINSVR','DATANSG','PE','DB'],
-      desc:'Admin connectivity path fully replaced. SD-WAN → SASE PoP (FWaaS) → Private Access Connector → Internal App Gateway → Data tier. No ExpressRoute, no VWAN, no Hub Firewall.' },
+      desc:'Admin connectivity path fully replaced. SD-WAN → SASE PoP (FWaaS) → Private Access Connector → Internal App Gateway → Data tier. Baseline: no GSA on admin device; trade-off vs ranger ZTNA is documented in SASE-DESIGN Section 3 and Q-S09. No ExpressRoute, no VWAN, no Hub Firewall.' },
     { id:'SCN-002b', subtitle:'Ranger via ZTNA agent (replaces P2S VPN) + RBI for internet access',
       nodes:['RANGER','ADMINID','EPA','SASEPOP','SWG','RBI','PACONN','ADMINAGW','ADMINNSG','ADMINSVR','DATANSG','PE','DB'],
       desc:'Ranger connects via GSA ZTNA agent → nearest SASE PoP → Private Access Connector → Internal App Gateway. No VPN tunnel; per-app access only. Lateral movement architecturally impossible. When ranger browses external sites, SWG + RBI (partner-required) execute pages in a cloud container - device never runs external web code. RBI is critical because ranger devices also have active ZTNA sessions to internal apps.' },

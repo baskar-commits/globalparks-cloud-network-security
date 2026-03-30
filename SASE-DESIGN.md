@@ -6,7 +6,7 @@
 | **Audience** | Security Architects, Network Team |
 | **Cloud scope** | Microsoft Azure - SASE / SSE overlay |
 | **Operations model** | Central Cloud SRE team + SASE vendor operations |
-| **Status** | v1.4 - SASE iteration |
+| **Status** | v1.5 - SASE iteration |
 | **Last updated** | 2026-03-27 |
 | **Companion document** | [DESIGN.md](DESIGN.md) - Azure-native Hub-and-Spoke reference architecture |
 
@@ -28,6 +28,7 @@ Where content is identical to the Azure-native design, this document states so e
    - 1.1 [Glossary and Acronyms](#11-glossary-and-acronyms)
 2. [Platform Context and Constraints](#2-platform-context-and-constraints)
 3. [User Personas](#3-user-personas)
+   - [Administrators, ZTNA, and defense in depth](#administrators-ztna-and-defense-in-depth-design-trade-off)
 4. [Security Architecture Overview](#4-security-architecture-overview)
    - 4.1 [N-Tier Architecture Diagram](#41-n-tier-architecture-diagram)
    - 4.2 [OSI Layer Control Mapping](#42-osi-layer-control-mapping)
@@ -63,6 +64,8 @@ The three foundational principles remain unchanged - **Zero Trust**, **defence i
 
 **The single most impactful change:** VPN Gateway (P2S and S2S) and Azure Virtual WAN are eliminated from the privileged connectivity path. Park Rangers connect via a **ZTNA agent** (Entra Private Access). Corporate administrators connect via **SD-WAN** to the nearest SASE PoP. Before traffic reaches any Azure VNet, both paths are inspected at the PoP by **FWaaS** (IDPS, TLS inspection, threat intelligence), **SWG** (Entra Internet Access for URL and web policy), **CASB** (Defender for Cloud Apps for SaaS visibility, session policy, and SaaS-side DLP signals), and, where required, **RBI** (Remote Browser Isolation via a **partner** such as Zscaler, Prisma, or Menlo, because Microsoft SSE has no native RBI). The 12 Hub VNets and 24 Azure Firewall instances are eliminated.
 
+**Design trade-off (administrators and ZTNA):** The baseline architecture assumes administrators on the **corporate LAN** reach the SASE fabric through a **site-based SD-WAN** path, **without** requiring a **per-user GSA / ZTNA client** on every admin laptop. Private access to GlobalParks apps still flows **through the SASE PoP** and **Private Access Connector** with Entra ID and Conditional Access; the difference from rangers is **how the workstation attaches** (trusted branch edge vs user agent). That simplifies rollout and avoids a second client stack on standard corporate desktops. It **does not** claim that **insider threat**, **lateral movement on the LAN**, or **compromised corp PCs** are impossible. For stronger **defense in depth** and **app-level parity** with rangers, see [Administrators, ZTNA, and defense in depth](#administrators-ztna-and-defense-in-depth-design-trade-off) in Section 3 and [Q-S09](#9-open-questions).
+
 **What does not change:** B2C public visitor traffic continues to use Azure Front Door Premium as the internet edge - Front Door is itself a SASE-class edge service and is not replaced. The data tier (Private Endpoints, Azure SQL, Cosmos DB) is unchanged. Microsoft Sentinel, Defender for Cloud, and Azure Policy remain the security operations and governance layer, enriched with additional SASE vendor telemetry.
 
 ### Executive Summary - Key Differences at a Glance
@@ -72,6 +75,7 @@ The three foundational principles remain unchanged - **Zero Trust**, **defence i
 | **Security perimeter for admin/ranger** | Azure Hub VNets + 24x Azure Firewall Premium | SASE PoPs - FWaaS in cloud | Inspection moves to the edge; Azure becomes a clean backend |
 | **Admin connectivity** | ExpressRoute (primary) + S2S VPN → VWAN → Hub Firewall | SD-WAN → nearest SASE PoP → FWaaS → Private Access Connector | No dedicated circuit needed; any broadband underlay works |
 | **Ranger connectivity** | P2S VPN client → VWAN → Hub Firewall | ZTNA agent (Entra Private Access) → nearest SASE PoP | App-level access replaces network tunnel; per-app policy |
+| **Admin ZTNA client (GSA)** | N/A (ExpressRoute / VPN path) | **Baseline:** optional - SD-WAN site path without per-user GSA; **Hardening:** GSA on admins for same app-level segmentation as rangers (Section 3 trade-off) | Connectivity story vs least-privilege on the endpoint |
 | **B2C connectivity** | Front Door → Hub Firewall (public IP) → App Gateway | Front Door → App Gateway directly (Private Link) | B2C path unchanged in principle; Hub Firewall hop eliminated |
 | **Hub VNets** | 12 (one per region) | 0 - eliminated | SASE PoP + Private Access Connector replaces Hub VNet function |
 | **Firewall instances in Azure** | 24 Azure Firewall Premium | 0 in Azure - FWaaS at SASE PoP | Firewall is cloud-delivered, not VNet-deployed |
@@ -144,7 +148,7 @@ The three personas remain identical in terms of identity, trust level, and compl
 | Persona | Identity (unchanged) | Azure-native connectivity | SASE connectivity | Key difference |
 |---|---|---|---|---|
 | **B2C Visitor** | Entra External ID - social login | Front Door → Hub Firewall → B2C Spoke | Front Door → App Gateway directly | Hub Firewall hop removed from B2C path |
-| **Park Administrator** | Entra ID + Conditional Access + MFA | Corporate LAN → ExpressRoute → VWAN → Hub Firewall → Spoke | Corporate LAN → SD-WAN → SASE PoP → FWaaS → Private Access Connector → Spoke | No dedicated circuit; SASE PoP is the security chokepoint |
+| **Park Administrator** | Entra ID + Conditional Access + MFA | Corporate LAN → ExpressRoute → VWAN → Hub Firewall → Spoke | Corporate LAN → SD-WAN → SASE PoP → FWaaS → Private Access Connector → Spoke | No dedicated circuit; SASE PoP is the chokepoint; **baseline** no GSA on device—optional hardening in Section 3 |
 | **Park Ranger** | Entra ID + Conditional Access + MFA + risk-based | Field device → P2S VPN client → VWAN → Hub Firewall → Spoke | Field device → GSA ZTNA agent → SASE PoP → FWaaS → Private Access Connector → Spoke | App-level access replaces network tunnel; per-app policy enforced at PoP |
 
 ### ZTNA vs VPN - What changes for Rangers
@@ -161,9 +165,20 @@ The shift from P2S VPN to ZTNA is the most operationally significant persona cha
 | **Internet traffic** | Separate from VPN (split tunnel or force-tunnel) | Routed through SWG at SASE PoP (Entra Internet Access) | Unified internet + private access through single agent and policy |
 | **Offline resilience** | VPN re-establishes automatically | ZTNA agent re-connects to nearest PoP automatically | Both are resilient; ZTNA PoP availability replaces VPN Gateway availability |
 
+### Administrators, ZTNA, and defense in depth (design trade-off)
+
+ZTNA (Entra Private Access via **GSA** on the device) enforces **application-level** reachability: the user does not receive a full routed corporate path into Azure; only **published applications** are proxied through the PoP. **Park Rangers** use that model in the baseline design because they lack a **fixed SD-WAN-attached site** and would otherwise depend on **P2S VPN** with broader network semantics.
+
+**Park Administrators** in the baseline design are modeled on **corporate offices** with an **SD-WAN appliance** that steers traffic to the **nearest SASE PoP**. After PoP inspection (**FWaaS**, **SWG**, **CASB** as applicable), traffic to GlobalParks private apps still uses the **Private Access Connector** and **published app** definitions—the **connector** is the VNet-side enforcement anchor for both personas. The **trade-off** is on the **endpoint**:
+
+- **Baseline (as drawn):** No **GSA** requirement on every admin PC. Trust is layered as **Entra ID + Conditional Access + SD-WAN site path + PoP controls + connector + NSG/ASG** inside Azure. Corporate **LAN** exposure (lateral movement, compromised workstations, flat networks) is **not** reduced to the same degree as on a ranger laptop that only has **ZTNA-published** paths from the device.
+- **Stronger alignment with Zero Trust:** Deploy **GSA / Entra Private Access on administrator devices** (especially **privileged** roles, **remote** admins without SD-WAN, or **high-value** app tiers) so **both** personas get **explicit per-app sessions** from the workstation. Alternatively or additionally: **micro-segmentation** on the corporate LAN, **Privileged Access Workstations (PAW)**, **JIT/JEA**, and **strict** CA policies for admin sign-in.
+
+This document **does not** mandate one choice for all enterprises; it documents the **baseline diagram** and the **security rationale** for tightening. See [Q-S09](#9-open-questions).
+
 ### Conditional Access - unchanged
 
-Conditional Access policies for administrators and rangers are **identical** to those in `DESIGN.md` Section 3. The SASE identity plane is Entra ID - SASE is identity-centric. Every ZTNA session is gated by Conditional Access evaluation before the SASE PoP grants access to any private app. Risk-based policy (High risk = hard block; Medium risk = step-up MFA) applies identically.
+Conditional Access policies for administrators and rangers remain **aligned** with those in `DESIGN.md` Section 3. The SASE identity plane is Entra ID—SASE is identity-centric. For **rangers**, a **GSA-mediated ZTNA session** is gated by Conditional Access before the PoP grants access to private apps. For **administrators on the baseline SD-WAN path**, the user still signs in under the same CA policies; traffic from the **SD-WAN-attached site** is forwarded through the PoP to **published applications** via the connector without requiring a **GSA client** on the device unless the organization adopts the **optional hardening** above. Risk-based policy (High risk = hard block; Medium risk = step-up MFA) applies identically at identity evaluation time.
 
 ---
 
@@ -183,7 +198,7 @@ The SASE architecture retains eight tiers but the **content and components of Ti
 |---|---|---|---|---|
 | **T0** | STEP-010 | B2C (internet), Admin (corporate LAN), Ranger (field, VPN client) | B2C (internet), Admin (corporate LAN + SD-WAN), Ranger (field, ZTNA agent) | Device-side client changes for Admin and Ranger |
 | **T1** | STEP-030 | Azure Front Door + WAF + DDoS (B2C only) | Azure Front Door + WAF + DDoS (B2C only) - **unchanged** | B2C edge is unchanged; SASE does not apply to anonymous internet traffic |
-| **T2** | STEP-020 | Entra External ID (B2C), Entra ID + CA (Admin/Ranger) | Same + **Entra Private Access (ZTNA)** as app-access gate | ZTNA connector added as the app-access enforcement point |
+| **T2** | STEP-020 | Entra External ID (B2C), Entra ID + CA (Admin/Ranger) | Same + **Entra Private Access (ZTNA)** as app-access gate | Connector + published apps for **both** personas; **GSA on device** baseline for rangers, **optional** for admins (Section 3 trade-off) |
 | **T3** | STEP-040/041 | 12x VWAN, 12x VPN Gateway S2S, 12x VPN Gateway P2S, ExpressRoute circuits | **SASE PoPs** (global, 100+ locations), SD-WAN fabric, SWG, CASB | Entire private connectivity layer replaced by SASE cloud fabric |
 | **T4** | STEP-050 | 12 Hub VNets, 24x Azure Firewall Premium, UDRs, Routing Intent | **Private Access Connector** (lightweight VM per app VNet) | Hub VNets and Azure Firewalls eliminated; connector is the VNet-side anchor |
 | **T5A** | STEP-060A | App Gateway WAF v2 (B2C Spoke) - behind Hub Firewall | App Gateway WAF v2 (B2C App VNet) - **Front Door connects directly** | NSG allows Front Door service tag instead of Hub Firewall IP |
@@ -202,7 +217,7 @@ The OSI mapping is largely preserved. The key shift is **who enforces each layer
 |---|---|---|---|
 | **L7 - Application** | WAF (Front Door + App Gateway), Azure Firewall IDPS, Sentinel | WAF (Front Door + App Gateway), **FWaaS IDPS at SASE PoP**, Sentinel + SASE vendor logs | IDPS moves from Azure Firewall to SASE FWaaS for admin/ranger path |
 | **L6 - Presentation** | TLS termination at Hub Firewall (IDPS inspection), App Gateway | TLS termination at **SASE PoP** (admin/ranger), App Gateway (B2C) | SASE PoP performs TLS inspection before traffic enters Azure |
-| **L5 - Session** | Entra ID + Conditional Access, VPN session (IKEv2) | Entra ID + Conditional Access, **ZTNA session** (TLS proxy, no IKE) | VPN session replaced by ZTNA proxy session; identity plane identical |
+| **L5 - Session** | Entra ID + Conditional Access, VPN session (IKEv2) | Entra ID + Conditional Access, **ZTNA proxy session to published apps** (TLS proxy, no IKE) for traffic through the PoP; **rangers:** user agent (GSA) establishes client ZTNA session; **admins (baseline):** SD-WAN site path to PoP without mandatory GSA—optional GSA for same session model (Section 3) | VPN session replaced for privileged paths; identity plane identical; admin endpoint model is a **documented trade-off** |
 | **L4 - Transport** | NSG, Azure Firewall network rules, App Gateway | NSG, **SASE PoP port/protocol policy**, App Gateway | Azure Firewall L4 rules replaced by SASE PoP policy |
 | **L3 - Network** | VWAN routing, UDRs, DDoS, Private Endpoints, Azure Firewall threat intelligence | **SASE PoP routing** (IP threat intelligence), DDoS (B2C unchanged), Private Endpoints | VWAN + UDR routing replaced by SASE PoP routing fabric |
 | **L2 - Data Link** | ExpressRoute dedicated VLANs, Azure VNet abstraction | **SD-WAN underlay** (any broadband/MPLS), Azure VNet abstraction | L2 underlay changes from dedicated circuit to SD-WAN overlay |
@@ -218,7 +233,7 @@ The SASE architecture adds a new telemetry source (SASE vendor logs) to the dete
 |---|---|---|---|---|---|
 | T0 - External Users | STEP-010 | Entra ID Protection | Risky sign-in events, leaked credentials | - | **Unchanged** |
 | T2 - Identity + ZTNA | STEP-020 | Entra Conditional Access | Risk signal aggregation | Hard block (High), step-up MFA (Medium), device compliance gate | **Unchanged** |
-| T2 - Identity + ZTNA | STEP-020 | Entra Private Access (ZTNA) | Access to unpublished apps blocked by default | Only explicitly published apps are reachable - ZTNA policy | **New** - replaces VPN route table |
+| T2 - Identity + ZTNA | STEP-020 | Entra Private Access (ZTNA) + connector | Access to unpublished apps blocked by default at connector/PoP | Only **published** GlobalParks apps are reachable through the PoP path; **rangers** use GSA for client-side ZTNA session; **admins (baseline)** rely on SD-WAN to PoP without mandatory GSA—see Section 3 for optional GSA / LAN controls | **New** - replaces VPN route table; admin **client** ZTNA is optional |
 | T3 - SASE PoP | STEP-040/041 | FWaaS at SASE PoP | IDPS alerts, threat intelligence events, TLS inspection hits | Inline IDPS block, malicious IP/domain block, TLS re-encrypt | **New** - replaces Azure Firewall Premium |
 | T3 - SASE PoP | STEP-040/041 | SWG (Entra Internet Access) | Malicious URL access, policy violations, shadow IT | Block non-permitted internet destinations for admin/ranger | **New** - replaces Azure Firewall internet rules |
 | T3 - SASE PoP | STEP-040/041 | CASB (Defender for Cloud Apps) | Shadow IT, SaaS policy violation, unusual data export | Block unauthorised SaaS apps, enforce session controls | **New** - replaces partial coverage from Sentinel alerts |
@@ -495,7 +510,7 @@ Path is **identical to `DESIGN.md` SCN-001** with one difference: the Hub Firewa
 An administrator at corporate HQ needs to update park capacity limits. The corporate office has an SD-WAN appliance.
 
 1. **STEP-010** - Identified as privileged admin persona.
-2. **STEP-020** - Signs in via Entra ID. Conditional Access evaluates: device is Intune-compliant, sign-in risk is low, location matches corporate IP, MFA completed. Access granted. Entra Private Access ZTNA session established.
+2. **STEP-020** - Signs in via Entra ID. Conditional Access evaluates: device is Intune-compliant, sign-in risk is low, location matches corporate IP, MFA completed. **Baseline:** The admin laptop does **not** run the GSA ZTNA client; identity and policy are satisfied before traffic is forwarded from the corporate site. Published-app access to GlobalParks is still brokered through the **SASE PoP** and **Private Access Connector** (not a generic corporate network route into the VNet). **Trade-off:** Optional GSA on admins for the same endpoint model as rangers—see [Section 3](#administrators-ztna-and-defense-in-depth-design-trade-off) and **Q-S09**.
 3. **STEP-040** - Admin's HTTP/S traffic is routed by the SD-WAN appliance to the nearest SASE PoP over the best available underlink (broadband or MPLS).
 4. **STEP-050** - FWaaS at the SASE PoP decrypts and re-inspects the TLS session. IDPS runs against the payload. Threat intelligence checks the source IP. Session passes. SASE PoP proxies the request through the Private Access Connector in the Admin/Ranger App VNet.
 5. **STEP-060B** - Internal App Gateway (WAF v2) receives the request from the PACONN subnet. Second WAF inspection catches any HTTP-layer attack payload. URL routing directs to the admin API backend pool. NSG permits PACONN source only.
@@ -503,6 +518,8 @@ An administrator at corporate HQ needs to update park capacity limits. The corpo
 7. **STEP-080** - SASE PoP FWaaS events stream to Sentinel. Admin session logged in Azure Monitor.
 
 **Key difference:** No ExpressRoute circuit, no VWAN hub, no Hub Firewall. SASE PoP performs the inspection role of the Hub Firewall.
+
+**Design trade-off:** This scenario uses **SD-WAN site ingress** without mandatory **per-user GSA**. It does not assert that **insider** or **LAN lateral-movement** risk is as low as the **ranger + GSA** path; optional hardening is documented in [Section 3](#administrators-ztna-and-defense-in-depth-design-trade-off).
 
 **Requirements exercised:** REQ-1.3, REQ-2.2, REQ-3.1, REQ-3.2, REQ-3.3, REQ-4.3
 
@@ -774,6 +791,8 @@ Roll these into a **3-5 year TCO** view: **Year 1** (implementation-heavy) vs **
 - SASE vendor PoP availability becomes a dependency for ranger connectivity (SLA must be evaluated against RTO requirement).
 - Offline-first scenarios (rangers in areas with no internet at all) require a fallback - this is unchanged from P2S VPN, which also requires internet connectivity.
 
+**Corporate administrators (baseline):** This ADR does **not** require GSA on every admin PC. Admins reach the same PoP and **Private Access Connector** path via **SD-WAN** (ADR-S003). The **endpoint** trade-off—whether to add **GSA** on admins for app-level parity and insider-threat reduction—is documented in [Section 3](#administrators-ztna-and-defense-in-depth-design-trade-off) and **Q-S09**.
+
 ---
 
 ### ADR-S003 - SD-WAN over ExpressRoute for Branch Office Connectivity
@@ -837,6 +856,7 @@ Roll these into a **3-5 year TCO** view: **Year 1** (implementation-heavy) vs **
 | Q-S06 | Private Access Connector redundancy - how many connectors per App VNet for RTO? | PACONN is in the critical path for admin/ranger access; single connector = single point of failure | SRE | **Open** |
 | Q-S07 | SASE PoP telemetry ingestion format for Sentinel - native connector or Syslog? | Affects telemetry latency, fidelity, and Sentinel cost | SRE / SOC | **Open - depends on ADR-S001 vendor selection** |
 | Q-S08 | Is Remote Browser Isolation (RBI) required for ranger and admin endpoints by PCI-DSS scope or accepted as a risk gap? | Rangers and admins access external portals while holding active ZTNA sessions to payment-adjacent systems. A browser-borne compromise on such a device is a higher-risk event. PCI-DSS DSS v4.0 Req 5 (malware protection) and Req 6 (secure systems) may require RBI for in-scope endpoints. Microsoft SSE has no native RBI - a third-party vendor is required. If not mandated, Microsoft Edge for Business session controls + Defender for Endpoint are the fallback compensating controls. | Security Architect / Compliance | **Open** |
+| Q-S09 | Should GlobalParks require **GSA / Entra Private Access on corporate administrator devices** (not only SD-WAN site path) for defense in depth? | Baseline design uses **SD-WAN to PoP** without mandatory **per-user GSA** on admin laptops. Threats from **inside the corporate network** and **lateral movement** argue for **optional or mandatory GSA** on privileged admins, **micro-segmentation**, or **PAW**—see Section 3. Decision affects client rollout, helpdesk, and blast-radius story. | Security Architect / IAM | **Open** |
 
 ---
 
@@ -849,6 +869,7 @@ Roll these into a **3-5 year TCO** view: **Year 1** (implementation-heavy) vs **
 | 1.2 | 2026-03-27 | Removed em dash punctuation across SASE doc; Exec Summary CASB row; Glossary Entra Private Access vs GSA; Section 7 central governance + TCO checklist; connector/PoP arrow semantics aligned with HTML diagram; cross-reference from DESIGN.md |
 | 1.3 | 2026-03-27 | Section 1 "single most impactful change" paragraph: CASB, SWG, RBI at PoP; Section 7 illustrative annual cost stab; sase-networking-flowchart Inspect tiers / zoom (later removed in v1.4) |
 | 1.4 | 2026-03-27 | Removed zoom and Inspect tiers from sase-networking-flowchart.html (filtering and walkthrough unchanged) |
+| 1.5 | 2026-03-27 | Documented **administrator vs ZTNA (GSA)** design trade-off: Executive Summary, new Section 3 subsection, Conditional Access nuance, Exec table row, Tier 2 / OSI L5 / Section 4.3 clarifications; Open Question **Q-S09**; diagram labels in Appendix A and sase-networking-flowchart.html |
 
 ---
 
@@ -871,7 +892,7 @@ flowchart TB
     subgraph T0["Tier 0 - STEP-010 - External Users and Devices"]
         direction LR
         VISITOR["B2C Visitors\nPublic internet - no SASE agent"]
-        CORPUSER["Park Administrators\nCorporate office - SD-WAN appliance"]
+        CORPUSER["Park Administrators\nCorporate office - SD-WAN appliance\nBaseline: no per-user GSA - see Section 3 trade-off"]
         RANGER["Park Rangers\nField device - GSA ZTNA agent"]
     end
     subgraph T1["Tier 1 - STEP-030 - Internet Edge B2C only (OSI L3-L7) - UNCHANGED"]
