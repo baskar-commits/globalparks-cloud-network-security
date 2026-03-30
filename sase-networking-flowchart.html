@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GlobalParks - SASE Network Security Architecture</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: false, theme: 'default', flowchart: { curve: 'basis' } });
+        window.__mermaid = mermaid;
+        document.addEventListener('DOMContentLoaded', async () => {
+            try { await mermaid.run({ querySelector: '.mermaid' }); }
+            catch (e) { console.error('Mermaid render error:', e); }
+            window.dispatchEvent(new Event('diagrams-ready'));
+        });
+    </script>
+    <style>
+        :root {
+            --bg:         #0d1117;
+            --surface:    #161b22;
+            --border:     #30363d;
+            --text:       #e6edf3;
+            --muted:      #8b949e;
+            --accent:     #58a6ff;
+            --accent-dim: rgba(88,166,255,0.12);
+            --danger:     #f85149;
+            --green:      #3fb950;
+            --sase:       #d2a8ff;
+            --sase-dim:   rgba(210,168,255,0.12);
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+        /* ─── sticky header ─── */
+        .sticky-top {
+            position: sticky; top: 0; z-index: 300;
+            background: var(--surface); border-bottom: 1px solid var(--border);
+        }
+        .filter-bar { padding: 0.55rem 1.5rem 0; }
+        .filter-inner { max-width: 1500px; margin: 0 auto; display: flex; flex-direction: column; gap: 0.45rem; }
+        .filter-top { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
+        .filter-label { font-size:.68rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+
+        .tab-group { display:flex; gap:0.25rem; flex-wrap:wrap; }
+        .tab { background:transparent; border:1px solid var(--border); color:var(--muted); padding:.22rem .8rem; border-radius:6px; font-size:.76rem; cursor:pointer; transition:all .15s; }
+        .tab:hover  { background:#21262d; color:var(--text); }
+        .tab.active { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); font-weight:600; }
+        .tab.walk   { border-color:#3fb950; }
+        .tab.walk.active { background:rgba(63,185,80,.12); border-color:var(--green); color:var(--green); }
+        .tab.sase   { border-color:var(--sase); }
+        .tab.sase.active { background:var(--sase-dim); border-color:var(--sase); color:var(--sase); }
+
+        .clear-btn { margin-left:auto; background:transparent; border:1px solid #6e3630; color:var(--danger); padding:.2rem .65rem; border-radius:6px; font-size:.72rem; cursor:pointer; display:none; align-items:center; gap:.3rem; transition:background .15s; }
+        .clear-btn.show { display:inline-flex; }
+        .clear-btn:hover { background:rgba(248,81,73,.1); }
+
+        /* pills */
+        .pill-group { display:none; flex-wrap:wrap; gap:0.28rem; padding-bottom:0.45rem; }
+        .pill-group.active { display:flex; }
+        .pill { background:#21262d; border:1px solid var(--border); color:var(--text); padding:.16rem .6rem; border-radius:999px; font-size:.72rem; cursor:pointer; transition:all .15s; white-space:nowrap; }
+        .pill:hover { background:#2d333b; border-color:var(--accent); color:var(--accent); }
+        .pill.sel   { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); font-weight:600; }
+        .pill.new-sase { border-color:var(--sase) !important; }
+        .pill.new-sase:hover { color:var(--sase); border-color:var(--sase); }
+        .pill.new-sase.sel { background:var(--sase-dim); border-color:var(--sase); color:var(--sase); }
+        .pill[data-osi="L7"] { border-color:#8957e5; } .pill[data-osi="L6"] { border-color:#3fb950; }
+        .pill[data-osi="L5"] { border-color:#d29922; } .pill[data-osi="L4"] { border-color:#f78166; }
+        .pill[data-osi="L3"] { border-color:#58a6ff; } .pill[data-osi="L2"] { border-color:#8b949e; }
+        .pill[data-osi="L1"] { border-color:#6e7681; }
+        .pill.walk-pill { border-color:var(--green); }
+        .pill.walk-pill:hover { color:var(--green); border-color:var(--green); }
+        .pill.walk-pill.sel { background:rgba(63,185,80,.12); border-color:var(--green); color:var(--green); }
+
+        /* ─── SASE diff badge ─── */
+        .sase-badge { display:inline-block; font-size:.58rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; background:var(--sase); color:#0d1117; padding:.08rem .32rem; border-radius:3px; margin-left:.3rem; vertical-align:middle; }
+        .sase-same  { background:#3fb950; }
+        .sase-new   { background:var(--sase); }
+        .sase-changed { background:#d29922; }
+        .sase-removed { background:var(--danger); }
+
+        /* ─── info banner ─── */
+        .info-banner {
+            display:none; gap:.7rem; align-items:flex-start;
+            background:linear-gradient(135deg,rgba(88,166,255,.08),rgba(210,168,255,.05));
+            border-top:1px solid rgba(88,166,255,.18);
+            padding:.6rem 1.5rem;
+        }
+        .info-banner.show { display:flex; max-width:100%; }
+        .info-badge { background:var(--accent); color:#0d1117; font-size:.65rem; font-weight:800; letter-spacing:.04em; padding:.14rem .48rem; border-radius:4px; white-space:nowrap; margin-top:2px; flex-shrink:0; }
+        .info-badge.green  { background:var(--green); }
+        .info-badge.sase   { background:var(--sase); }
+        .info-badge.danger { background:var(--danger); }
+        .info-body { flex:1; min-width:0; display:flex; flex-wrap:wrap; gap:.4rem 1.5rem; align-items:baseline; }
+        .info-subtitle { font-size:.82rem; font-weight:600; white-space:nowrap; }
+        .info-desc     { font-size:.76rem; color:var(--muted); line-height:1.5; flex:1; min-width:200px; }
+        .info-diff     { font-size:.72rem; color:var(--sase); font-style:italic; flex-basis:100%; }
+        .info-links    { display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; }
+        .info-link { font-size:.68rem; color:var(--accent); border:1px solid rgba(88,166,255,.28); padding:.1rem .45rem; border-radius:4px; text-decoration:none; cursor:pointer; transition:background .15s; white-space:nowrap; }
+        .info-link:hover { background:var(--accent-dim); }
+
+        /* ─── walkthrough controls ─── */
+        .walk-controls {
+            display:none; gap:.5rem; align-items:center; flex-wrap:wrap;
+            background:rgba(63,185,80,.06); border-top:1px solid rgba(63,185,80,.2);
+            padding:.5rem 1.5rem;
+        }
+        .walk-controls.show { display:flex; }
+        .walk-progress { font-size:.72rem; color:var(--green); font-weight:600; white-space:nowrap; min-width:80px; }
+        .walk-step-title { font-size:.8rem; font-weight:600; flex:1; }
+        .walk-step-desc  { font-size:.74rem; color:var(--muted); flex:2; min-width:200px; line-height:1.45; }
+        .wbtn { background:transparent; border:1px solid var(--green); color:var(--green); padding:.22rem .75rem; border-radius:6px; font-size:.76rem; cursor:pointer; transition:all .15s; white-space:nowrap; }
+        .wbtn:hover { background:rgba(63,185,80,.12); }
+        .wbtn:disabled { opacity:.3; cursor:default; }
+        .wbtn.exit { border-color:var(--border); color:var(--muted); margin-left:auto; }
+        .wbtn.exit:hover { background:#21262d; color:var(--text); }
+
+        /* ─── page body ─── */
+        .page-wrap { max-width:1500px; margin:0 auto; padding:1.1rem 1.5rem 0; }
+        .page-header h1 { font-size:1.25rem; font-weight:700; color:var(--sase); margin-bottom:.2rem; }
+        .page-header p  { font-size:.76rem; color:var(--muted); }
+        .page-header .compare-link { font-size:.74rem; color:var(--accent); border:1px solid rgba(88,166,255,.3); padding:.2rem .6rem; border-radius:5px; text-decoration:none; margin-top:.4rem; display:inline-block; }
+        .page-header .compare-link:hover { background:var(--accent-dim); }
+
+        /* legend */
+        .legend { display:flex; flex-wrap:wrap; gap:.4rem 1rem; font-size:.68rem; margin-top:.5rem; padding-bottom:.3rem; }
+        .legend-item { display:flex; align-items:center; gap:.3rem; }
+        .legend-dot { width:8px; height:8px; border-radius:50%; }
+
+        /* ─── diagram cards ─── */
+        .content-area { max-width:1500px; margin:0 auto; padding:0 1.5rem 2rem; display:flex; flex-direction:column; gap:1.2rem; margin-top:1rem; }
+        .diagram-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+        .diagram-card.sase-card { border-color:rgba(210,168,255,.3); }
+        .card-header { padding:.6rem 1.1rem; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+        .card-tag { font-size:.6rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; background:#21262d; border:1px solid var(--border); color:var(--muted); padding:.1rem .38rem; border-radius:4px; }
+        .card-title { font-size:.86rem; font-weight:600; }
+        .card-meta  { margin-left:auto; font-size:.7rem; color:var(--muted); }
+        .diagram-wrap { background:#fff; padding:1.75rem; overflow-x:auto; }
+        .diagram-wrap svg { overflow:visible; }
+        .mermaid { display:flex; justify-content:center; }
+
+        svg g.node, svg g.cluster, svg path.flowchart-link, svg g.edgeLabel { transition: opacity .22s ease; }
+
+        /* ─── back to top ─── */
+        .back-top { position:fixed; bottom:1.4rem; right:1.4rem; z-index:400; background:var(--sase); color:#0d1117; border:none; border-radius:50%; width:2.3rem; height:2.3rem; font-size:1.2rem; cursor:pointer; display:none; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(210,168,255,.4); transition:opacity .2s,transform .2s; }
+        .back-top.show { display:flex; }
+        .back-top:hover { transform:translateY(-2px); }
+    </style>
+</head>
+<body>
+
+<!-- ═══ STICKY TOP ═══ -->
+<div class="sticky-top" id="sticky-top">
+    <div class="filter-bar">
+        <div class="filter-inner">
+            <div class="filter-top">
+                <span class="filter-label">Filter&nbsp;by:</span>
+                <div class="tab-group">
+                    <button class="tab active"      onclick="switchTab('tier',this)">Tier</button>
+                    <button class="tab"             onclick="switchTab('scn', this)">Scenario (SCN)</button>
+                    <button class="tab"             onclick="switchTab('req', this)">Requirement (REQ)</button>
+                    <button class="tab"             onclick="switchTab('step',this)">Step (STEP)</button>
+                    <button class="tab"             onclick="switchTab('osi', this)">OSI Layer</button>
+                    <button class="tab sase"        onclick="switchTab('diff',this)">&#9670; SASE vs Azure-native</button>
+                    <button class="tab walk"        onclick="switchTab('walk',this)">&#9654; Walkthrough</button>
+                    <button class="tab"             onclick="clearFilter()">Show All</button>
+                </div>
+                <button class="clear-btn" id="clear-btn" onclick="clearFilter()">&#10005;&nbsp;Clear</button>
+            </div>
+            <div id="pills-tier" class="pill-group active"></div>
+            <div id="pills-scn"  class="pill-group"></div>
+            <div id="pills-req"  class="pill-group"></div>
+            <div id="pills-step" class="pill-group"></div>
+            <div id="pills-osi"  class="pill-group"></div>
+            <div id="pills-diff" class="pill-group"></div>
+            <div id="pills-walk" class="pill-group"></div>
+        </div>
+    </div>
+
+    <div class="info-banner" id="info-banner">
+        <span class="info-badge" id="info-badge"></span>
+        <div class="info-body">
+            <div class="info-subtitle" id="info-subtitle"></div>
+            <div class="info-desc"     id="info-desc"></div>
+            <div class="info-diff"     id="info-diff"></div>
+            <div class="info-links"    id="info-links"></div>
+        </div>
+    </div>
+
+    <div class="walk-controls" id="walk-controls">
+        <span class="walk-progress"   id="walk-progress">Step 1 of 6</span>
+        <span class="walk-step-title" id="walk-step-title"></span>
+        <span class="walk-step-desc"  id="walk-step-desc"></span>
+        <button class="wbtn" id="walk-prev" onclick="walkStep(-1)">&#8592; Prev</button>
+        <button class="wbtn" id="walk-next" onclick="walkStep(+1)">Next &#8594;</button>
+        <button class="wbtn exit" onclick="clearFilter()">&#10005; Exit</button>
+    </div>
+</div>
+
+<!-- ═══ PAGE HEADER ═══ -->
+<div class="page-wrap" id="page-top">
+    <div class="page-header">
+        <h1>GlobalParks - SASE Network Security Architecture</h1>
+        <p>SASE-DESIGN.md&nbsp;v1.4&nbsp;&nbsp;&#183;&nbsp;&nbsp;Filter highlights nodes across both diagrams&nbsp;&nbsp;&#183;&nbsp;&nbsp;&#9670;&nbsp;SASE&nbsp;vs&nbsp;Azure-native diff tab shows what changed&nbsp;&nbsp;&#183;&nbsp;&nbsp;&#9654;&nbsp;Walkthrough traces SASE-specific scenarios step by step&nbsp;&nbsp;&#183;&nbsp;&nbsp;Press <kbd>Esc</kbd> to reset</p>
+        <div class="legend">
+            <span class="legend-item"><span class="legend-dot" style="background:var(--sase)"></span> New in SASE (replaces Azure-native component)</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--green)"></span> Unchanged from Azure-native</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#d29922"></span> Modified (same purpose, different source or config)</span>
+        </div>
+        <a class="compare-link" href="azure-networking-flowchart.html">&#8617; View Azure-native architecture</a>
+    </div>
+</div>
+
+<!-- ═══ DIAGRAMS ═══ -->
+<div class="content-area">
+    <div class="diagram-card sase-card" id="section41">
+        <div class="card-header">
+            <span class="card-tag">Section 4.1</span>
+            <span class="card-title">SASE N-Tier Architecture - 8 Tiers &amp; SASE PoP replacing Hub VNets &amp; Azure Firewall</span>
+            <span class="card-meta">Tier 3 = SASE PoPs &nbsp;|&nbsp; Tier 4 = Private Access Connector &nbsp;|&nbsp; B2C path goes direct Front Door &#8594; App Gateway</span>
+        </div>
+        <div class="diagram-wrap">
+            <pre class="mermaid">
+flowchart TB
+    subgraph T0["Tier 0 - STEP-010 - External Users and Devices"]
+        direction LR
+        VISITOR["B2C Visitors\nPublic internet - no SASE agent"]
+        CORPUSER["Park Administrators\nCorporate office - SD-WAN appliance"]
+        RANGER["Park Rangers\nField device - GSA ZTNA agent"]
+    end
+    subgraph T1["Tier 1 - STEP-030 - Internet Edge B2C only (OSI L3-L7) - UNCHANGED"]
+        direction LR
+        AFD["Azure Front Door Premium\nGeo-routing to nearest PoP  REQ-1.1\nUNCHANGED - B2C path only"]
+        WAF["Azure WAF\nOWASP DRS and custom rules  REQ-1.3\nUNCHANGED - B2C path only"]
+        DDOS["DDoS Protection Standard\nVolumetric attack mitigation  REQ-1.2\nUNCHANGED"]
+    end
+    subgraph T2["Tier 2 - STEP-020 - Identity and ZTNA Gate (OSI L5-L7)"]
+        direction LR
+        B2CID["Entra External ID B2C\nSocial login  REQ-2.1\nUNCHANGED"]
+        ADMINID["Entra ID + Conditional Access\nRisk-based MFA  REQ-2.2\nIdentity is the SASE control plane"]
+        EPA["Entra Private Access ZTNA\nApp-level connector\nNEW - Replaces P2S VPN and S2S VPN\nADR-S002"]
+    end
+    subgraph T3["Tier 3 - STEP-040 and STEP-041 - SASE PoP Layer (NEW - replaces 12x VWAN and 24x Azure Firewall)"]
+        direction LR
+        SASEPOP["SASE PoPs - 100+ global locations\nNearest PoP terminates all admin and ranger sessions\nFWaaS - IDPS, TLS inspection, threat intelligence\nADR-S001"]
+        SDWAN["SD-WAN Fabric\nBranch offices to nearest SASE PoP\nNEW - Replaces ExpressRoute S2S VPN and VWAN\nADR-S003"]
+        SWG["Secure Web Gateway SWG\nEntra Internet Access\nNEW - Internet-bound access control for admin and ranger"]
+        CASB["CASB - Defender for Cloud Apps\nSaaS app control, DLP, shadow IT\nNEW in SASE context"]
+        RBI["Remote Browser Isolation RBI\nCloud browser container at SASE PoP\nNEW - PARTNER REQUIRED\nZscaler / Prisma / Menlo - not Microsoft native\nQ-S08"]
+    end
+    subgraph T4["Tier 4 - STEP-050 - Private Access Connector (NEW - replaces 12 Hub VNets and 24 Azure Firewalls)"]
+        direction LR
+        PACONN["Entra Private Access Connector\nLightweight VM in each app VNet\nOutbound-only to SASE PoP - no inbound public IP\nNEW - ADR-S004"]
+    end
+    subgraph T5A["App VNet 1 of 24 - STEP-060A - B2C Public App Tier (OSI L4-L7) - MODIFIED"]
+        direction LR
+        AGW["App Gateway + WAF v2\nURL routing and WAF  L7  REQ-1.3\nTLS termination  L6\nMODIFIED - Front Door connects directly via Private Link"]
+        WEBNSG["NSG - Web Subnet\nMODIFIED - Allow Front Door tag  L4  REQ-3.1"]
+        APPSVR["B2C App Servers\nUnchanged workloads"]
+    end
+    subgraph T5B["App VNet 2 of 24 - STEP-060B - Admin and Ranger Private App Tier (OSI L4-L7) - MODIFIED"]
+        direction LR
+        ADMINAGW["Internal App Gateway + WAF v2\nNo public IP\nMODIFIED - receives from PACONN subnet\nURL routing and WAF  L7  REQ-1.3"]
+        ADMINNSG["NSG - Internal App Subnet\nMODIFIED - Allow PACONN subnet  L4  REQ-3.1"]
+        ADMINSVR["Admin and Ranger App Servers\nUnchanged workloads"]
+    end
+    subgraph T6["Tier 6 - STEP-070 - Regional Data Tier x12 (OSI L3-L4) - UNCHANGED"]
+        direction LR
+        DATANSG["NSG - Data Subnet\nAllow Web Tier ASG only  L4  REQ-3.2"]
+        PE["Private Endpoints\nPrivate IP only  L3  REQ-3.3"]
+        DB["Azure SQL - Metadata\nCosmos DB - Documents\nMulti-region write - geo-replication"]
+        T6EU["EU Region copy\n(same structure)"]
+        T6APAC["APAC Region copy\n(same structure)"]
+    end
+    subgraph T7["Tier 7 - STEP-080 - Security Operations (ENHANCED with SASE telemetry)"]
+        direction LR
+        MDFC["Defender for Cloud\nCSPM and workload protection  REQ-4.2\nUNCHANGED"]
+        SENTINEL["Microsoft Sentinel\nSIEM and SOAR  REQ-4.3\nENHANCED - ingests SASE telemetry"]
+        AZMON["Azure Monitor\nLog Analytics\nUNCHANGED"]
+        SASELOGS["SASE Vendor Telemetry\nFWaaS IDPS events, SWG logs, CASB alerts\nNEW signal source vs Azure-native"]
+        AZPOL["Azure Policy + GitOps\nExtended to SASE policy-as-code"]
+    end
+    subgraph T8["Tier 8 - STEP-090 - On-premises and Hybrid (SD-WAN replaces branch ExpressRoute)"]
+        direction LR
+        SDWANBR["SD-WAN Branch Nodes\nLegacy parks to nearest SASE PoP\nMODIFIED - replaces dedicated ExpressRoute circuits"]
+        IOTSENS["IoT Sensors\nAzure IoT Hub - UNCHANGED"]
+        GOVAGENCY["Government Agencies\nZTNA connector or dedicated ExpressRoute"]
+    end
+
+    VISITOR -->|"SCN-001 SCN-009 SCN-010 Social sign-in"| B2CID
+    CORPUSER -->|"SCN-002 Corporate network via SD-WAN"| SDWAN
+    RANGER -->|"SCN-002b ZTNA agent on field device"| EPA
+
+    B2CID --> AFD
+    AFD --> WAF
+    WAF --> DDOS
+    DDOS -->|"SCN-001 SCN-003 SCN-009 SCN-010\nFront Door Private Link - no Hub Firewall"| AGW
+
+    ADMINID -->|"Conditional Access gate - corporate admin"| SDWAN
+    ADMINID -->|"Conditional Access gate - ranger ZTNA"| EPA
+    SDWAN --> SASEPOP
+    EPA --> SASEPOP
+    SASEPOP -->|"Proxied app session (after FWaaS IDPS at PoP)"| PACONN
+    PACONN -.->|"Persistent outbound TLS (connector initiates to PoP)"| SASEPOP
+    SASEPOP --> SWG
+    SASEPOP --> CASB
+    SWG -.->|"RBI policy - partner required - Q-S08"| RBI
+
+    PACONN -->|"SCN-002 SCN-002b Admin and Ranger access"| ADMINAGW
+    AGW --> WEBNSG
+    WEBNSG --> APPSVR
+    ADMINAGW --> ADMINNSG
+    ADMINNSG --> ADMINSVR
+
+    APPSVR -->|"REQ-3.1 Web to Data"| DATANSG
+    ADMINSVR -->|"REQ-3.1 App to Data"| DATANSG
+    DATANSG -->|"REQ-3.2 ASG-gated"| PE
+    PE -->|"REQ-3.3 Private IP only"| DB
+
+    SDWANBR -->|"SCN-007 SD-WAN to SASE PoP"| SASEPOP
+    IOTSENS -->|"SCN-006 IoT Hub"| AZMON
+    GOVAGENCY -->|"SCN-008 ZTNA or ExpressRoute"| SASEPOP
+
+    SASELOGS -.->|"SASE telemetry stream"| AZMON
+    AGW -.->|"WAF and access logs"| AZMON
+    ADMINAGW -.->|"WAF logs"| AZMON
+    WEBNSG -.->|"NSG flow logs"| AZMON
+    DATANSG -.->|"NSG flow logs"| AZMON
+    AZMON -->|"All telemetry  REQ-4.3"| SENTINEL
+    MDFC -->|"Posture alerts  REQ-4.2"| SENTINEL
+            </pre>
+        </div>
+    </div>
+
+    <div class="diagram-card" id="section43">
+        <div class="card-header">
+            <span class="card-tag">Section 4.3</span>
+            <span class="card-title">STEP-080 - Security Operations Detail (SASE-enhanced)</span>
+            <span class="card-meta">New SASE signal sources: FWaaS IDPS events, SWG logs, CASB alerts &rarr; Sentinel &rarr; SASE-specific Playbooks</span>
+        </div>
+        <div class="diagram-wrap">
+            <pre class="mermaid">
+flowchart LR
+    subgraph INPUTS["Signal Sources - All Tiers (SASE + Azure)"]
+        direction TB
+        FWLOG["SASE FWaaS\nIDPS alerts and TLS events\nNEW vs Azure-native"]
+        WAFLOG["WAF Block Events\nFront Door and App Gateway\nUNCHANGED"]
+        SWGLOG["SWG - Entra Internet Access\nURL blocks, web violations\nNEW"]
+        CASBLOG["CASB - Defender for Cloud Apps\nSaaS anomalies, DLP alerts\nNEW"]
+        NSGLOG["NSG Flow Logs\nAll subnets\nUNCHANGED"]
+        DEFLOG["Defender for SQL\nQuery anomalies\nUNCHANGED"]
+        IDLOG["Entra ID Protection\nSign-in risk signals\nUNCHANGED"]
+        SRVLOG["Defender for Servers\nVulnerability findings\nUNCHANGED"]
+    end
+    subgraph COLLECT["Collection Layer"]
+        MON["Azure Monitor\nLog Analytics Workspace\nKQL queryable  REQ-4.3"]
+    end
+    subgraph POSTURE["Posture Management"]
+        MDFC2["Defender for Cloud\nCSPM - Security Score\nPCI-DSS, GDPR, ISO 27001, NIST\nREQ-4.2"]
+    end
+    subgraph DETECT["Detection and Correlation"]
+        SENT2["Microsoft Sentinel\nSIEM - AI Fusion detection\nCorrelates Azure and SASE signals\nREQ-4.3"]
+    end
+    subgraph PREVENT["Preventive Controls"]
+        POLICY["Azure Policy\nDeployment-time enforcement"]
+        GITOPS["GitOps Pipeline\nAzure and SASE policy as code\nPR-gated rule changes"]
+    end
+    subgraph RESPOND["Automated Response - SASE-enhanced Playbooks"]
+        PLAYBOOK["Logic App Playbooks\nSOAR automation"]
+        BLOCKIP["Block IP at SASE FWaaS\nvia SASE vendor API - NEW"]
+        REVOKEZTNA["Revoke ZTNA Session\nEntra Private Access policy - NEW"]
+        DISABLE["Disable Entra ID Account\nUNCHANGED"]
+        ISOLATE["Isolate SD-WAN Branch\nRestrict to remediation VLAN - NEW"]
+        ITSM["ITSM Ticket\nSOC escalation - UNCHANGED"]
+    end
+    FWLOG --> MON
+    WAFLOG --> MON
+    SWGLOG --> MON
+    CASBLOG --> MON
+    NSGLOG --> MON
+    DEFLOG --> MON
+    IDLOG --> MON
+    SRVLOG --> MON
+    MON --> SENT2
+    MON --> MDFC2
+    MDFC2 -->|"Posture alerts"| SENT2
+    SENT2 --> PLAYBOOK
+    PLAYBOOK --> BLOCKIP
+    PLAYBOOK --> REVOKEZTNA
+    PLAYBOOK --> DISABLE
+    PLAYBOOK --> ISOLATE
+    PLAYBOOK --> ITSM
+    GITOPS -.->|"Policy as code"| POLICY
+            </pre>
+        </div>
+    </div>
+</div>
+
+<button class="back-top" id="back-top" title="Back to top" onclick="scrollToTop()">&#8679;</button>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// WALKTHROUGH DATA (SASE-specific scenarios)
+// ─────────────────────────────────────────────────────────────────────────────
+const WALKS = {
+  'SCN-002S': {
+    title: 'Park Admin \u2192 SD-WAN \u2192 SASE PoP \u2192 Azure',
+    badge: 'SCN-002',
+    steps: [
+      { title: 'Park Administrator at corporate office', nodes: ['CORPUSER'],
+        desc: 'An administrator at corporate HQ needs to update park capacity limits. Their corporate office has an SD-WAN appliance. No VPN client is installed on the admin\'s device. No ExpressRoute circuit is provisioned. DIFFERENCE: In Azure-native, admin needed a P2S or S2S VPN client and ExpressRoute was the primary path.' },
+      { title: 'Entra ID sign-in + Conditional Access gate', nodes: ['ADMINID'],
+        desc: 'Admin signs in to Entra ID. Conditional Access evaluates: device is Intune-compliant, sign-in risk is Low, location matches corporate IP range, MFA completed. Entra Private Access ZTNA session is established as the app-access gate. UNCHANGED: Conditional Access policies are identical to Azure-native.' },
+      { title: 'SD-WAN routes to nearest SASE PoP', nodes: ['SDWAN','SASEPOP'],
+        desc: 'The SD-WAN appliance at the corporate office routes GlobalParks management traffic to the nearest SASE PoP over the best available underlink (broadband or MPLS). At the SASE PoP, FWaaS applies: TLS decryption, IDPS inspection (2,500+ signatures), threat intelligence IP/domain blocking. Session is clean. DIFFERENCE: In Azure-native, this was ExpressRoute → VWAN → Hub Firewall. No VWAN or Azure Firewall is involved here.' },
+      { title: 'SASE PoP proxies through Private Access Connector', nodes: ['PACONN'],
+        desc: 'The SASE PoP, having inspected and approved the session, proxies the request through the Entra Private Access Connector in the Admin/Ranger App VNet. The connector maintains a persistent outbound connection to the PoP - no inbound public IP, no firewall rule needed. DIFFERENCE: Replaces 12 Hub VNets + 24 Azure Firewall instances. Zero Azure-side firewalls involved.' },
+      { title: 'Internal App Gateway WAF v2 - second inspection layer', nodes: ['ADMINAGW','ADMINNSG','ADMINSVR'],
+        desc: 'Traffic arrives at the Internal App Gateway (WAF v2) from the PACONN subnet (NSG updated to allow PACONN source, not Hub Firewall). WAF v2 inspects for OWASP Top 10 application-layer attacks in HTTP/S payloads - a compromised-but-authenticated admin device could carry SQL injection even through SASE IDPS. URL routing directs to the admin API backend pool. UNCHANGED in function; source IP in NSG changed.' },
+      { title: 'Data written to Azure SQL via Private Endpoint', nodes: ['DATANSG','PE','DB'],
+        desc: 'Configuration update written to Azure SQL via Private Endpoint - private IP, no public endpoint. NSG allows only asg-admin-app ASG. COMPLETELY UNCHANGED from Azure-native. The data tier is independent of the SASE connectivity topology.' },
+      { title: 'Security Operations - SASE telemetry joins Sentinel', nodes: ['SASELOGS','AZMON','SENTINEL'],
+        desc: 'SASE PoP FWaaS events (IDPS alerts, TLS inspection events, threat intelligence blocks) stream to Azure Monitor via SASE vendor connector. Admin session logs from App Gateway and NSG flow logs also feed Azure Monitor. Sentinel correlates across all sources. DIFFERENCE: New SASE telemetry plane adds FWaaS signal source not present in Azure-native design.' },
+    ]
+  },
+  'SCN-002bS': {
+    title: 'Ranger \u2192 ZTNA Agent \u2192 SASE PoP \u2192 Azure',
+    badge: 'SCN-002b',
+    steps: [
+      { title: 'Park Ranger at remote trailhead', nodes: ['RANGER'],
+        desc: 'A ranger at a remote visitor centre needs to mark a trail as closed. Their Intune-managed field device has the Global Secure Access (GSA) agent installed - this replaces both the Azure VPN client and any separate internet proxy client. DIFFERENCE: In Azure-native, ranger had a P2S VPN client. In SASE, a single GSA agent handles both private access (ZTNA) and internet access (SWG).' },
+      { title: 'Entra Private Access ZTNA + Conditional Access', nodes: ['ADMINID','EPA'],
+        desc: 'Ranger signs in to Entra ID. Conditional Access evaluates: device is Intune-enrolled, sign-in risk is Low (standard MFA sufficient), no Named Location restriction (rangers are mobile). ZTNA session established. The ZTNA policy publishes ONLY the trail management app - the ranger\'s device has no network route into the Azure VNet. DIFFERENCE: In Azure-native, the ranger got a VPN tunnel with a routed IP. In SASE, only the specific app is reachable.' },
+      { title: 'GSA agent routes to nearest SASE PoP - FWaaS + SWG + RBI', nodes: ['SASEPOP','SWG','RBI'],
+        desc: 'The GSA agent on the ranger\'s field device routes the request to the nearest SASE PoP. FWaaS at the PoP: TLS decryption, IDPS inspection, threat intelligence check. ZTNA policy confirms the ranger is authorised for the trail management app only. SWG controls any internet-bound browsing from this device. RBI (partner-required): if the ranger opens an external vendor portal or government site, RBI executes that page in a cloud browser container - the device receives only a pixel stream. DIFFERENCE: In Azure-native, P2S VPN → VWAN → Hub Firewall IDPS. In SASE, all inspection at PoP. RBI has no equivalent in Azure-native.' },
+      { title: 'Private Access Connector proxies to App VNet', nodes: ['PACONN'],
+        desc: 'The SASE PoP proxies the approved, inspected request through the Private Access Connector in the Admin/Ranger App VNet. The connector forwards only to the Internal App Gateway - not to any other VNet resource. Lateral movement from the ranger\'s perspective is architecturally impossible: no network route exists from the ranger to any resource other than the published app.' },
+      { title: 'Internal App Gateway WAF v2 - second inspection layer', nodes: ['ADMINAGW','ADMINNSG','ADMINSVR'],
+        desc: 'Internal App Gateway WAF v2 receives the request from the PACONN subnet. Second WAF inspection catches application-layer attacks that might pass through SASE IDPS (e.g. SQL injection in a trail API query parameter from a compromised device). URL routing directs to the ranger API backend pool. UNCHANGED in function - NSG source is PACONN subnet, not Hub Firewall IP.' },
+      { title: 'Trail update written to Azure SQL via Private Endpoint', nodes: ['DATANSG','PE','DB'],
+        desc: 'Trail status update written to Azure SQL via Private Endpoint. NSG allows only asg-admin-app ASG. COMPLETELY UNCHANGED from Azure-native. The data tier isolation is independent of how the ranger connected.' },
+      { title: 'Security Operations - ZTNA session + FWaaS events in Sentinel', nodes: ['SASELOGS','AZMON','SENTINEL'],
+        desc: 'SASE PoP logs the ZTNA session establishment, IDPS inspection result, and app-level access event. These stream to Azure Monitor and Sentinel. Sentinel can now correlate: ZTNA session from ranger + Entra ID sign-in risk + Defender for SQL query anomaly - across three platforms in a single incident. DIFFERENCE: Richer telemetry than P2S VPN logs alone in Azure-native.' },
+    ]
+  },
+  'SCN-009': {
+    title: 'Sydney Visitor \u2192 Great Barrier Reef (B2C - unchanged)',
+    badge: 'SCN-009',
+    steps: [
+      { title: 'Sydney visitor opens GlobalParks', nodes: ['VISITOR'],
+        desc: 'B2C visitor in Sydney books a campsite at Great Barrier Reef. This is the B2C path - SASE does not apply to B2C visitors (no SASE agent, no corporate identity). The B2C path is UNCHANGED from the Azure-native design, except the Hub Firewall hop is removed.' },
+      { title: 'Google login via Entra External ID', nodes: ['B2CID'],
+        desc: 'Visitor authenticates via Google through Entra External ID. Session token issued, valid for B2C Spoke VNet only. UNCHANGED - B2C identity is not affected by SASE.' },
+      { title: 'Front Door PoP (Sydney) - WAF + DDoS', nodes: ['AFD','WAF','DDOS'],
+        desc: 'TCP handshake terminates at the Sydney/Melbourne Front Door PoP. WAF (OWASP DRS) inspects. DDoS protection active. Front Door routes over Microsoft backbone - but in SASE, the destination is the App Gateway directly via Private Link Origin (no Hub Firewall hop). DIFFERENCE from Azure-native: Front Door connects to App Gateway private IP, not Hub Firewall public IP. Hub Firewall IDPS is absent on this path.' },
+      { title: 'App Gateway WAF v2 - first Azure-side inspection (MODIFIED role)', nodes: ['AGW','WEBNSG','APPSVR'],
+        desc: 'In SASE, the App Gateway WAF v2 is the FIRST (and only) Azure-side WAF inspection point for B2C - not the second as in Azure-native. Front Door WAF is the first layer. NSG allows Front Door service tag instead of Hub Firewall IP. App Gateway WAF v2 policy tuning is more critical without Hub Firewall IDPS above it.' },
+      { title: 'Cosmos DB write - Australia East (UNCHANGED)', nodes: ['DATANSG','PE','DB'],
+        desc: 'B2C app server writes the campsite reservation to Cosmos DB via Private Endpoint in Australia East - same region as visitor and park. COMPLETELY UNCHANGED. Cosmos DB replicates to all 11 other regions within RPO window. Rangers at Gold Coast see the booking in real time.' },
+      { title: 'Security Operations monitoring (ENHANCED)', nodes: ['AZMON','SENTINEL'],
+        desc: 'App Gateway WAF logs, NSG flow logs stream to Azure Monitor and Sentinel. In SASE, this B2C path does NOT generate SASE PoP telemetry (B2C visitors do not use SASE). SASE telemetry enriches only the admin/ranger paths. Sentinel monitors B2C traffic via WAF and App Gateway logs as before.' },
+    ]
+  },
+  'SCN-010': {
+    title: 'Sydney Visitor \u2192 Yosemite NP (B2C cross-region - unchanged)',
+    badge: 'SCN-010',
+    steps: [
+      { title: 'Same Sydney visitor - different park', nodes: ['VISITOR'],
+        desc: 'Same Sydney visitor books at Yosemite NP, California. Cross-continental scenario. B2C path is UNCHANGED from Azure-native (SASE does not apply to B2C). Hub Firewall hop removed but otherwise identical.' },
+      { title: 'Google login - globally valid token', nodes: ['B2CID'],
+        desc: 'Same Google login. Entra External ID token is globally valid. UNCHANGED.' },
+      { title: 'Front Door routes to nearest origin - still Australia East', nodes: ['AFD','WAF','DDOS'],
+        desc: 'Sydney Front Door PoP, Australia East origin - same routing logic as SCN-009. Front Door optimises for visitor network path, not park geography. In SASE: Front Door Private Link connects to Australia East App Gateway (no Hub Firewall). SASE PoPs are not in the B2C path.' },
+      { title: 'Australia East App Gateway - same path as SCN-009', nodes: ['AGW','WEBNSG','APPSVR'],
+        desc: 'Australia East App Gateway WAF v2 processes the Yosemite request identically to a Gold Coast request. URL routing directs to reservation backend. Application code knows this is Yosemite - infrastructure does not. UNCHANGED vs SCN-009 in SASE.' },
+      { title: 'Write to APAC Cosmos DB - replicates to Americas', nodes: ['DATANSG','PE','DB'],
+        desc: 'Yosemite reservation written to Australia East Cosmos DB via Private Endpoint. Cosmos DB multi-region write replicates asynchronously to Americas West within RPO (15 min). Yosemite ranger in California sees booking once replication completes. COMPLETELY UNCHANGED from Azure-native.' },
+      { title: 'Security Operations - cross-region awareness', nodes: ['AZMON','SENTINEL'],
+        desc: 'Session logged in Azure Monitor (Australia East). Cosmos DB replication metadata provides cross-region visibility. Sentinel has global view. No SASE PoP involvement on this B2C path. Key insight: cross-region routing complexity of ADR-004 (12 separate VWANs needing S2S links) does NOT exist on the B2C path in either design.' },
+    ]
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FILTER DATA
+// ─────────────────────────────────────────────────────────────────────────────
+const DIAG2_NODES = ['FWLOG','WAFLOG','SWGLOG','CASBLOG','NSGLOG','DEFLOG','IDLOG','SRVLOG',
+                     'MON','MDFC2','SENT2','POLICY','GITOPS',
+                     'PLAYBOOK','BLOCKIP','REVOKEZTNA','DISABLE','ISOLATE','ITSM'];
+
+const FD = {
+  tier: [
+    { id:'T0', label:'Tier 0', step:'STEP-010', subtitle:'External Users - GSA agent for Rangers',
+      nodes:['VISITOR','CORPUSER','RANGER'], changeType:'changed',
+      desc:'Same 3 personas. Difference: Rangers have GSA ZTNA agent instead of Azure VPN client. Admins use SD-WAN-connected corporate office instead of ExpressRoute.',
+      diff:'vs. Azure-native: Azure VPN client → GSA ZTNA agent; ExpressRoute circuit → SD-WAN appliance at office.' },
+    { id:'T1', label:'Tier 1', step:'STEP-030', subtitle:'Internet Edge - UNCHANGED (B2C only)',
+      nodes:['AFD','WAF','DDOS'], changeType:'same',
+      desc:'Azure Front Door Premium, WAF (OWASP DRS), and DDoS Protection Standard are completely unchanged. SASE does not apply to B2C public internet traffic - B2C visitors have no SASE agent or corporate identity.',
+      diff:'vs. Azure-native: UNCHANGED. B2C internet edge is not affected by SASE.' },
+    { id:'T2', label:'Tier 2', step:'STEP-020', subtitle:'Identity + Entra Private Access (ZTNA)',
+      nodes:['B2CID','ADMINID','EPA'], changeType:'changed',
+      desc:'Entra ID + Conditional Access is unchanged - identity is the SASE control plane. NEW: Entra Private Access (ZTNA) added as the app-level access enforcement gate for admins and rangers.',
+      diff:'vs. Azure-native: +Entra Private Access ZTNA replaces VPN tunnel as app-access gate. Conditional Access policies identical.' },
+    { id:'T3', label:'Tier 3', step:'STEP-040/041', subtitle:'SASE PoP Layer - NEW (replaces VWAN + VPN Gateways)',
+      nodes:['SASEPOP','SDWAN','SWG','CASB','RBI'], changeType:'new',
+      desc:'All new. SASE PoPs (100+ globally) replace 12 VWAN instances + 24 VPN Gateways. FWaaS at PoP provides IDPS, TLS inspection, threat intelligence. SD-WAN replaces ExpressRoute for branches. SWG handles internet access. CASB controls SaaS. RBI (partner-required) executes risky external pages in a cloud browser container - device never runs the web content.',
+      diff:'vs. Azure-native: 12x VWAN + 12x VPN Gateway S2S + 12x P2S + ExpressRoute circuits → SASE PoPs + SD-WAN + SWG + CASB + RBI (partner).' },
+    { id:'T4', label:'Tier 4', step:'STEP-050', subtitle:'Private Access Connector - NEW (replaces Hub VNets)',
+      nodes:['PACONN'], changeType:'new',
+      desc:'All new. The Private Access Connector is a lightweight VM in each App VNet that maintains an outbound connection to the SASE PoP. No Hub VNet, no Azure Firewall, no UDRs. 12 Hub VNets and 24 Azure Firewall Premium instances are eliminated.',
+      diff:'vs. Azure-native: 12 Hub VNets + 24 Azure Firewall Premium + VWAN Routing Intent → Private Access Connector per App VNet.' },
+    { id:'T5A', label:'Tier 5A', step:'STEP-060A', subtitle:'B2C App VNet - MODIFIED (Front Door direct)',
+      nodes:['AGW','WEBNSG','APPSVR'], changeType:'changed',
+      desc:'App Gateway WAF v2 is unchanged in function. MODIFIED: Front Door connects directly via Private Link - no Hub Firewall above App Gateway. App Gateway WAF v2 is now the first (not second) Azure-side WAF on B2C path. NSG source changes from Hub Firewall IP to Front Door service tag.',
+      diff:'vs. Azure-native: NSG source Hub Firewall IP → Front Door service tag; App Gateway WAF is now first Azure-side inspection layer.' },
+    { id:'T5B', label:'Tier 5B', step:'STEP-060B', subtitle:'Admin/Ranger App VNet - MODIFIED (PACONN source)',
+      nodes:['ADMINAGW','ADMINNSG','ADMINSVR'], changeType:'changed',
+      desc:'Internal App Gateway WAF v2 unchanged in function. MODIFIED: receives traffic from Private Access Connector subnet instead of Hub Firewall. NSG source updated from Hub Firewall IP to PACONN subnet. Second WAF inspection layer preserved.',
+      diff:'vs. Azure-native: NSG source Hub Firewall IP → PACONN subnet; function identical.' },
+    { id:'T6', label:'Tier 6', step:'STEP-070', subtitle:'Data Tier - UNCHANGED',
+      nodes:['DATANSG','PE','DB','T6EU','T6APAC'], changeType:'same',
+      desc:'Completely unchanged. Private Endpoints, NSG with ASG gating, Azure SQL, Cosmos DB multi-region write, Private DNS Zones - all identical. The data tier is independent of the connectivity and inspection topology.',
+      diff:'vs. Azure-native: UNCHANGED in every detail.' },
+    { id:'T7', label:'Tier 7', step:'STEP-080', subtitle:'Security Operations - ENHANCED with SASE telemetry',
+      nodes:['MDFC','SENTINEL','AZMON','SASELOGS','AZPOL'], diag2All:true,
+      changeType:'changed',
+      desc:'Azure Monitor, Sentinel, Defender for Cloud, Azure Policy all unchanged. ENHANCED: SASE vendor telemetry (FWaaS IDPS events, SWG logs, CASB alerts) added as new Sentinel signal source. New Playbook actions: block at SASE FWaaS, revoke ZTNA session, isolate SD-WAN branch.',
+      diff:'vs. Azure-native: +SASE telemetry signal; +SASE-specific Playbook response actions; SASE policy added to GitOps scope.',
+      scrollTo:'section43' },
+    { id:'T8', label:'Tier 8', step:'STEP-090', subtitle:'On-premises - SD-WAN replaces branch ExpressRoute',
+      nodes:['SDWANBR','IOTSENS','GOVAGENCY'], changeType:'changed',
+      desc:'IoT Hub and Azure Arc: unchanged. MODIFIED: Legacy park branch offices use SD-WAN branch nodes to connect to nearest SASE PoP - no dedicated ExpressRoute circuit needed. Government agencies: choice of ZTNA connector or retain ExpressRoute.',
+      diff:'vs. Azure-native: Legacy branch ExpressRoute → SD-WAN; IoT unchanged; Gov: optional ZTNA connector.' },
+  ],
+  scn: [
+    { id:'SCN-001', subtitle:'B2C Visitor - Hub Firewall hop removed',
+      nodes:['VISITOR','B2CID','AFD','WAF','DDOS','AGW','WEBNSG','APPSVR','DATANSG','PE','DB'],
+      desc:'B2C path largely unchanged. Front Door WAF → App Gateway WAF v2 → Data tier. DIFFERENCE: Hub Firewall IDPS hop removed - Front Door connects directly to App Gateway via Private Link. App Gateway WAF v2 is now the first Azure-side inspection layer.' },
+    { id:'SCN-002', subtitle:'Admin via SD-WAN + SASE PoP (replaces ER + VWAN)',
+      nodes:['CORPUSER','ADMINID','SDWAN','SASEPOP','PACONN','ADMINAGW','ADMINNSG','ADMINSVR','DATANSG','PE','DB'],
+      desc:'Admin connectivity path fully replaced. SD-WAN → SASE PoP (FWaaS) → Private Access Connector → Internal App Gateway → Data tier. No ExpressRoute, no VWAN, no Hub Firewall.' },
+    { id:'SCN-002b', subtitle:'Ranger via ZTNA agent (replaces P2S VPN) + RBI for internet access',
+      nodes:['RANGER','ADMINID','EPA','SASEPOP','SWG','RBI','PACONN','ADMINAGW','ADMINNSG','ADMINSVR','DATANSG','PE','DB'],
+      desc:'Ranger connects via GSA ZTNA agent → nearest SASE PoP → Private Access Connector → Internal App Gateway. No VPN tunnel; per-app access only. Lateral movement architecturally impossible. When ranger browses external sites, SWG + RBI (partner-required) execute pages in a cloud container - device never runs external web code. RBI is critical because ranger devices also have active ZTNA sessions to internal apps.' },
+    { id:'SCN-003', subtitle:'Internet Threat - B2C path unchanged',
+      nodes:['AFD','WAF','DDOS','AGW'],
+      desc:'DDoS at Front Door PoP, WAF blocks at Front Door, App Gateway WAF v2 as second layer. No Hub Firewall IDPS on B2C path in SASE. Admin/ranger internet threat handled by SWG at SASE PoP.' },
+    { id:'SCN-004', subtitle:'Cross-Region - SASE PoP handles routing',
+      nodes:['SASEPOP','PACONN','ADMINAGW'],
+      desc:'Cross-region admin traffic handled by SASE PoP inter-PoP routing. No need for explicit S2S connections between regional VWAN hubs (ADR-004 complexity eliminated for admin/ranger cross-region path).' },
+    { id:'SCN-005', subtitle:'SOC Multi-Stage Attack - SASE telemetry enriches Sentinel',
+      nodes:['SASEPOP','SASELOGS','AZMON','SENTINEL','MDFC'],
+      desc:'Sentinel correlates SASE FWaaS IDPS alert + Entra ID risk + Defender for SQL anomaly. SASE telemetry is the new signal that closes the correlation gap. Playbooks: revoke ZTNA, block at SASE FWaaS, disable Entra ID account.' },
+    { id:'SCN-006', subtitle:'IoT Sensor Integration - UNCHANGED',
+      nodes:['IOTSENS','AZMON'],
+      desc:'IoT Hub, Stream Analytics, Cosmos DB ingestion unchanged. SASE does not affect IoT path.' },
+    { id:'SCN-007', subtitle:'Legacy Branch via SD-WAN (replaces ExpressRoute)',
+      nodes:['SDWANBR','SASEPOP','PACONN'],
+      desc:'Legacy park offices connect via SD-WAN branch node to nearest SASE PoP. FWaaS inspection applies. Data Factory pipelines unchanged - only connectivity method differs.' },
+    { id:'SCN-008', subtitle:'Government Agency via ZTNA or ExpressRoute',
+      nodes:['GOVAGENCY','SASEPOP','PACONN','ADMINAGW','ADMINNSG'],
+      desc:'Government agencies can use ZTNA connector (install lightweight connector in agency network) or retain dedicated ExpressRoute. ZTNA gives tighter app-level scope control.' },
+    { id:'SCN-009', subtitle:'Sydney Visitor → Great Barrier Reef (B2C unchanged)',
+      nodes:['VISITOR','B2CID','AFD','WAF','DDOS','AGW','WEBNSG','APPSVR','DATANSG','PE','DB','AZMON','SENTINEL'],
+      desc:'B2C path unchanged. Front Door → App Gateway directly (Private Link). Hub Firewall hop removed. Cosmos DB Australia East. Use ▶ Walkthrough for step-by-step trace.' },
+    { id:'SCN-010', subtitle:'Sydney Visitor → Yosemite NP (cross-region B2C)',
+      nodes:['VISITOR','B2CID','AFD','WAF','DDOS','AGW','WEBNSG','APPSVR','DATANSG','PE','DB','AZMON','SENTINEL'],
+      desc:'Same as SCN-009 path. Cross-region handled by Cosmos DB multi-region write. SASE cross-region complexity (ADR-004 12-VWAN S2S requirements) does not affect B2C path.' },
+  ],
+  req: [
+    { id:'REQ-1.1', subtitle:'Global Geo-routing - UNCHANGED', nodes:['AFD'],
+      desc:'Azure Front Door Premium anycast routing - identical to Azure-native.' },
+    { id:'REQ-1.2', subtitle:'DDoS Protection - UNCHANGED', nodes:['DDOS'],
+      desc:'Azure DDoS Protection Standard - identical to Azure-native.' },
+    { id:'REQ-1.3', subtitle:'WAF - 3 inspection points preserved', nodes:['WAF','AGW','ADMINAGW'],
+      desc:'Three WAF layers preserved: Front Door WAF (global B2C), public App Gateway WAF v2 (B2C App VNet), internal App Gateway WAF v2 (Admin/Ranger App VNet). Count unchanged; sources of traffic differ.' },
+    { id:'REQ-2.1', subtitle:'B2C Social Login - UNCHANGED', nodes:['B2CID'],
+      desc:'Entra External ID social federation - identical to Azure-native.' },
+    { id:'REQ-2.2', subtitle:'Corporate MFA + Conditional Access - ENHANCED', nodes:['ADMINID','EPA'],
+      desc:'Entra ID Conditional Access unchanged. ENHANCED: Entra Private Access ZTNA adds per-application access control as an additional enforcement gate beyond Conditional Access.' },
+    { id:'REQ-3.1', subtitle:'NSG Micro-segmentation - MODIFIED source IPs', nodes:['WEBNSG','ADMINNSG'],
+      desc:'NSG rules unchanged in intent. MODIFIED: source IPs updated. B2C web subnet: Front Door service tag (was Hub Firewall IP). Admin subnet: PACONN subnet (was Hub Firewall IP).' },
+    { id:'REQ-3.2', subtitle:'ASG-gated Data Access - UNCHANGED', nodes:['DATANSG'],
+      desc:'Data subnet NSG gated to ASGs (asg-b2c-web, asg-admin-app) - identical to Azure-native.' },
+    { id:'REQ-3.3', subtitle:'Private Endpoints - UNCHANGED', nodes:['PE'],
+      desc:'Azure Private Endpoints for SQL and Cosmos DB - identical to Azure-native.' },
+    { id:'REQ-4.1', subtitle:'Central Inspection - SASE PoP replaces Hub Firewall', nodes:['SASEPOP','PACONN','AGW'],
+      desc:'REQ-4.1 satisfied differently: SASE PoP FWaaS (admin/ranger path) + Front Door WAF (B2C). No Azure Firewall instances. The SASE PoP is the new mandatory inspection point for privileged traffic.' },
+    { id:'REQ-4.2', subtitle:'CSPM - UNCHANGED', nodes:['MDFC','MDFC2'],
+      desc:'Defender for Cloud CSPM, Secure Score, compliance dashboards - identical to Azure-native.' },
+    { id:'REQ-4.3', subtitle:'SIEM - ENHANCED with SASE telemetry', nodes:['SENTINEL','AZMON','SENT2','MON','SASELOGS'],
+      desc:'Sentinel + Log Analytics unchanged. ENHANCED: SASE vendor telemetry (FWaaS, SWG, CASB logs) added as new signal source. Broader correlation capability.' },
+    { id:'REQ-RBI', subtitle:'Remote Browser Isolation - PARTNER REQUIRED (❌ not Microsoft native)', nodes:['SWG','RBI'], changeType:'gap',
+      desc:'RBI executes external web content in a cloud browser container at the SASE PoP - only a pixel stream reaches the device. Prevents browser-borne malware and phishing payload execution on ranger/admin endpoints that also hold active ZTNA sessions. Microsoft SSE (Entra Internet Access) does NOT include native RBI. Partner required: Zscaler Cloud Browser Isolation, Palo Alto Prisma Browser Isolation, or Menlo Security. Relevant for PCI-DSS scope (Q-S08).' },
+  ],
+  step: [
+    { id:'STEP-010', subtitle:'User Personas - GSA agent replaces VPN', tierId:'T0',
+      nodes:['VISITOR','CORPUSER','RANGER'],
+      desc:'Same 3 personas. Rangers: GSA ZTNA agent replaces Azure VPN client. Admins: SD-WAN appliance at office replaces ExpressRoute circuit dependency.' },
+    { id:'STEP-020', subtitle:'Identity + Entra Private Access ZTNA', tierId:'T2',
+      nodes:['B2CID','ADMINID','EPA'],
+      desc:'Entra ID + Conditional Access unchanged - identity is the SASE control plane. NEW: Entra Private Access ZTNA added as app-level access gate. Risk-based CA policy (High=block, Medium=step-up MFA) identical.' },
+    { id:'STEP-040', subtitle:'Admin: SD-WAN → SASE PoP (replaces ExpressRoute + VWAN)', tierId:'T3',
+      nodes:['SDWAN','SASEPOP'],
+      desc:'ExpressRoute + VWAN + Hub Firewall replaced by SD-WAN + SASE PoP FWaaS. No dedicated circuit, no VWAN, no Azure Firewall. FWaaS at PoP: IDPS, TLS inspection, threat intelligence.' },
+    { id:'STEP-041', subtitle:'Ranger: ZTNA agent → SASE PoP (replaces P2S VPN)', tierId:'T3',
+      nodes:['EPA','SASEPOP','SWG','RBI'],
+      desc:'P2S VPN + VWAN + Hub Firewall replaced by GSA agent + SASE PoP. Per-app access; no network route. Lateral movement architecturally impossible. ZTNA session gated by Conditional Access. SWG at PoP controls internet access. RBI (partner-required) isolates risky external web sessions in a cloud browser container - critical for rangers who have active ZTNA sessions to internal apps.' },
+    { id:'STEP-030', subtitle:'Internet Edge: B2C unchanged; SWG + RBI new for admin/ranger', tierId:'T1',
+      nodes:['AFD','WAF','DDOS','SWG','RBI'],
+      desc:'B2C: Front Door → App Gateway directly (Private Link). SWG at SASE PoP handles internet-bound traffic for admin/ranger devices (new). RBI (partner-required) extends SWG: risky external pages are rendered in a cloud browser container. No Hub Firewall IDPS on B2C path in SASE.' },
+    { id:'STEP-050', subtitle:'Private Access Connector - replaces Hub VNets', tierId:'T4',
+      nodes:['PACONN'],
+      desc:'12 Hub VNets + 24 Azure Firewall Premium eliminated. Private Access Connector (lightweight VM per App VNet) maintains outbound connection to SASE PoP. No public IP, no UDRs needed.' },
+    { id:'STEP-060A', subtitle:'B2C App VNet - modified NSG source', tierId:'T5A',
+      nodes:['AGW','WEBNSG','APPSVR'],
+      desc:'App Gateway WAF v2 unchanged in function. Front Door connects directly (Private Link). NSG: Front Door service tag (was Hub Firewall IP). App Gateway WAF is now first Azure-side inspection layer.' },
+    { id:'STEP-060B', subtitle:'Admin/Ranger App VNet - modified NSG source', tierId:'T5B',
+      nodes:['ADMINAGW','ADMINNSG','ADMINSVR'],
+      desc:'Internal App Gateway WAF v2 unchanged in function. Receives from PACONN subnet (was Hub Firewall). NSG: PACONN subnet (was Hub Firewall IP). Second WAF layer preserved.' },
+    { id:'STEP-070', subtitle:'Data Tier - COMPLETELY UNCHANGED', tierId:'T6',
+      nodes:['DATANSG','PE','DB','T6EU','T6APAC'],
+      desc:'Private Endpoints, NSG with ASG gating, SQL, Cosmos DB multi-region write, Private DNS - all identical to Azure-native. Data tier is fully independent of SASE topology.' },
+    { id:'STEP-080', subtitle:'Security Operations - enhanced with SASE telemetry', tierId:'T7',
+      nodes:['MDFC','SENTINEL','AZMON','SASELOGS','AZPOL'], diag2All:true,
+      desc:'Azure Monitor, Sentinel, Defender for Cloud, Azure Policy unchanged. NEW: SASE telemetry (FWaaS IDPS, SWG, CASB logs) as new Sentinel signal source. New Playbooks: revoke ZTNA, block at SASE FWaaS, isolate SD-WAN branch.',
+      scrollTo:'section43' },
+    { id:'STEP-090', subtitle:'On-premises - SD-WAN replaces branch ExpressRoute', tierId:'T8',
+      nodes:['SDWANBR','IOTSENS','GOVAGENCY'],
+      desc:'IoT Hub, Azure Arc unchanged. Legacy branch offices: SD-WAN → SASE PoP (replaces ExpressRoute). Government agencies: ZTNA connector or retain ExpressRoute.' },
+  ],
+  diff: [
+    { id:'DIFF-NEW', label:'New in SASE', subtitle:'Components introduced by SASE',
+      nodes:['SASEPOP','SDWAN','SWG','CASB','RBI','PACONN','EPA','SASELOGS'],
+      desc:'All components that are new in the SASE architecture and have no direct equivalent in the Azure-native design. These replace: VWAN (SASEPOP), ExpressRoute/VPN (SDWAN/EPA), Azure Firewall internet rules (SWG), Azure Firewall (PACONN proxies to app), Azure Firewall logs (SASELOGS). RBI is a new partner capability with no equivalent in Azure-native.' },
+    { id:'DIFF-REMOVED', label:'Removed from Azure-native', subtitle:'Components eliminated in SASE',
+      nodes:['SASEPOP'],  // highlight SASE as the replacement
+      desc:'Eliminated: 12 Hub VNets, 24 Azure Firewall Premium instances, 12 VWAN instances, 12x VPN Gateway S2S, 12x VPN Gateway P2S, ExpressRoute circuits for branches. These are all replaced by the SASE PoP fabric and Private Access Connector.' },
+    { id:'DIFF-SAME', label:'Unchanged from Azure-native', subtitle:'Components identical in both architectures',
+      nodes:['VISITOR','B2CID','AFD','WAF','DDOS','ADMINID','DATANSG','PE','DB','T6EU','T6APAC','MDFC','SENTINEL','AZMON','AZPOL','IOTSENS','APPSVR','ADMINSVR'],
+      desc:'All unchanged: B2C internet edge (Front Door, WAF, DDoS), Entra External ID, Entra ID + Conditional Access, all data tier components (Private Endpoints, SQL, Cosmos DB, NSG with ASGs), all SecOps components (Sentinel, Defender for Cloud, Azure Monitor, Azure Policy), app servers.' },
+    { id:'DIFF-CHANGED', label:'Modified in SASE', subtitle:'Same function, different source or config',
+      nodes:['AGW','WEBNSG','ADMINAGW','ADMINNSG','CORPUSER','RANGER','GOVAGENCY','SDWANBR'],
+      desc:'Modified: App Gateway WAF v2 (function same; now receives from Front Door directly, not Hub Firewall). NSGs (intent same; source IP changes from Hub Firewall to Front Door tag or PACONN subnet). Admin persona (SD-WAN appliance instead of ExpressRoute). Ranger (GSA agent instead of VPN client). Gov agency (ZTNA or ExpressRoute choice).' },
+  ],
+  osi: [
+    { id:'L7', label:'L7 – Application', subtitle:'Application layer controls',
+      nodes:['AFD','WAF','B2CID','ADMINID','EPA','SASEPOP','SWG','CASB','RBI','AGW','ADMINAGW','APPSVR','ADMINSVR','MDFC','SENTINEL','AZMON','AZPOL','SASELOGS','FWLOG','WAFLOG','SWGLOG','CASBLOG','NSGLOG','DEFLOG','IDLOG','SRVLOG','MON','MDFC2','SENT2','POLICY','GITOPS','PLAYBOOK','BLOCKIP','REVOKEZTNA','DISABLE','ISOLATE','ITSM'],
+      desc:'L7 (Application): Front Door WAF, Entra ID auth, ZTNA (app-level policy), SWG (URL filtering), CASB (SaaS control), FWaaS IDPS at SASE PoP, RBI (partner-required - cloud browser container, renders external pages at PoP, pixel-stream only to device), both App Gateways URL routing + WAF, all SecOps nodes. DIFFERENCE: FWaaS at SASE PoP replaces Azure Firewall IDPS for admin/ranger path.' },
+    { id:'L6', label:'L6 – Presentation', subtitle:'TLS termination and encryption',
+      nodes:['AGW','ADMINAGW','SASEPOP'],
+      desc:'L6 (Presentation): TLS terminated at SASE PoP (admin/ranger - inspect + re-encrypt), public App Gateway (B2C HTTPS), internal App Gateway (admin/ranger HTTPS inside VNet). DIFFERENCE: SASE PoP replaces Hub Firewall as the TLS inspection point for admin/ranger.' },
+    { id:'L5', label:'L5 – Session', subtitle:'Session and identity management',
+      nodes:['B2CID','ADMINID','EPA'],
+      desc:'L5 (Session): Entra External ID (B2C sessions), Entra ID (admin/ranger sessions, token issuance, revocation). NEW: Entra Private Access ZTNA session (TLS proxy, not IPSec tunnel) replaces IKEv2 VPN session.' },
+    { id:'L4', label:'L4 – Transport', subtitle:'Port and protocol enforcement',
+      nodes:['SASEPOP','AGW','ADMINAGW','WEBNSG','ADMINNSG','DATANSG'],
+      desc:'L4 (Transport): SASE PoP FWaaS port/protocol policy (replaces Azure Firewall network rules). NSGs on all subnets (unchanged intent, source IPs updated). App Gateways enforce allowed HTTP methods.' },
+    { id:'L3', label:'L3 – Network', subtitle:'IP routing and network-layer controls',
+      nodes:['SASEPOP','SDWAN','EPA','DDOS','PE','PACONN'],
+      desc:'L3 (Network): SASE PoP fabric routing (replaces VWAN hub-and-spoke). SD-WAN overlay routing (replaces ExpressRoute/S2S VPN). ZTNA: no network route established (replaces P2S VPN routed IP). DDoS Protection unchanged. Private Endpoints unchanged.' },
+    { id:'L2', label:'L2 – Data Link', subtitle:'Layer 2 circuit and underlay',
+      nodes:['SDWAN'],
+      desc:'L2 (Data Link): SD-WAN abstracts the underlay - broadband, MPLS, or 4G can be used. DIFFERENCE: ExpressRoute dedicated VLAN-based BGP peering replaced by SD-WAN overlay over shared internet. Lower physical isolation than ExpressRoute.' },
+    { id:'L1', label:'L1 – Physical', subtitle:'Physical infrastructure security',
+      nodes:['SASEPOP'],
+      desc:'L1 (Physical): Azure datacentres ISO 27001-certified (unchanged). SASE PoPs are operated by SASE vendor (vendor physical security must be evaluated). SD-WAN uses shared internet infrastructure - no dedicated fibre. DIFFERENCE: ExpressRoute dedicated fibre → shared internet with SD-WAN overlay.' },
+  ],
+  walk: []
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SVG INDEX
+// ─────────────────────────────────────────────────────────────────────────────
+let IDX  = { d1: null, d2: null };
+let CURR = null;
+let WALK_STATE = null;
+
+function buildIdx(svg) {
+    const nodes = {};
+    svg.querySelectorAll('g.node').forEach(el => {
+        const m = el.id.match(/[^-]+-([A-Z][A-Z0-9]*)-\d+$/i);
+        if (m) nodes[m[1].toUpperCase()] = el;
+    });
+    const clusters = {};
+    svg.querySelectorAll('g.cluster').forEach(el => { if (el.id) clusters[el.id.toUpperCase()] = el; });
+    const edges = [];
+    svg.querySelectorAll('path.flowchart-link').forEach(el => {
+        const cls = [...el.classList];
+        const src = (cls.find(c => c.startsWith('LS-')) || '').slice(3).toUpperCase();
+        const dst = (cls.find(c => c.startsWith('LE-')) || '').slice(3).toUpperCase();
+        edges.push({ el, src, dst, lbl: null });
+    });
+    svg.querySelectorAll('g.edgeLabel').forEach((el, i) => { if (edges[i]) edges[i].lbl = el; });
+    return { nodes, clusters, edges };
+}
+
+function op(el, v)  { if (el) el.style.opacity = String(v); }
+function glowOn(el, color) {
+    const s = el.querySelector('rect,polygon,circle,ellipse');
+    if (!s) return;
+    s.style.stroke = color || '#58a6ff'; s.style.strokeWidth = '2.5';
+    s.style.filter = `drop-shadow(0 0 9px ${color ? color + '80' : 'rgba(88,166,255,.65)'})`;
+}
+function glowOff(el) {
+    const s = el.querySelector('rect,polygon,circle,ellipse');
+    if (!s) return;
+    s.style.stroke = s.style.strokeWidth = s.style.filter = '';
+}
+function applyToIdx(idx, matched, allOn, glowColor) {
+    if (!idx) return;
+    const { nodes, clusters, edges } = idx;
+    Object.values(nodes).forEach(e    => op(e, 0.1));
+    Object.values(clusters).forEach(e => op(e, 0.18));
+    edges.forEach(({ el, lbl }) => { op(el, 0.06); op(lbl, 0.06); });
+    if (allOn) {
+        Object.values(nodes).forEach(e    => { op(e, 1); glowOn(e, glowColor); });
+        Object.values(clusters).forEach(e => op(e, 1));
+        edges.forEach(({ el, lbl }) => { op(el, 0.9); op(lbl, 0.9); });
+        return;
+    }
+    matched.forEach(id => { const el = nodes[id]; if (el) { op(el, 1); glowOn(el, glowColor); } });
+    edges.forEach(({ el, src, dst, lbl }) => {
+        const sm = matched.has(src), dm = matched.has(dst);
+        if (sm || dm) {
+            const both = sm && dm;
+            op(el, both ? 0.9 : 0.38);
+            if (both) { el.style.stroke = glowColor || '#58a6ff'; el.style.strokeWidth = '1.8'; }
+            op(lbl, both ? 0.9 : 0.35);
+        }
+    });
+    Object.values(clusters).forEach(e => op(e, 0.45));
+}
+function softDim(idx) {
+    if (!idx) return;
+    Object.values(idx.nodes).forEach(e    => { op(e, 0.3); glowOff(e); });
+    Object.values(idx.clusters).forEach(e => op(e, 0.3));
+    idx.edges.forEach(({ el, lbl }) => { op(el, 0.15); op(lbl, 0.15); });
+}
+function resetIdx(idx) {
+    if (!idx) return;
+    Object.values(idx.nodes).forEach(e    => { op(e, 1); glowOff(e); });
+    Object.values(idx.clusters).forEach(e => op(e, 1));
+    idx.edges.forEach(({ el, lbl }) => { op(el, 1); op(lbl, 1); el.style.stroke = el.style.strokeWidth = ''; });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FILTER ACTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+function applyFilter(type, id) {
+    const item = FD[type].find(f => f.id === id);
+    if (!item) return;
+    CURR = { type, id, item };
+    WALK_STATE = null;
+    document.getElementById('walk-controls').classList.remove('show');
+
+    // choose glow colour: purple for SASE-new, green for same, amber for changed, red for gap
+    const glowColor = item.changeType === 'new' ? '#d2a8ff'
+                    : item.changeType === 'same' ? '#3fb950'
+                    : item.changeType === 'changed' ? '#d29922'
+                    : item.changeType === 'gap' ? '#f85149'
+                    : '#58a6ff';
+
+    const d1Matched = new Set((item.nodes || []).map(n => n.toUpperCase()));
+    const d2Matched = new Set((item.nodes || []).filter(n => DIAG2_NODES.includes(n)).map(n => n.toUpperCase()));
+    applyToIdx(IDX.d1, d1Matched, false, glowColor);
+    if (item.diag2All) applyToIdx(IDX.d2, new Set(DIAG2_NODES), true, glowColor);
+    else if (d2Matched.size > 0) applyToIdx(IDX.d2, d2Matched, false, glowColor);
+    else softDim(IDX.d2);
+
+    const badge = document.getElementById('info-badge');
+    badge.textContent = item.id;
+    badge.className = 'info-badge' + (item.changeType === 'new' ? ' sase' : item.changeType === 'same' ? ' green' : item.changeType === 'gap' ? ' danger' : '');
+    document.getElementById('info-subtitle').textContent = item.subtitle;
+    document.getElementById('info-desc').textContent = item.desc;
+    const diffEl = document.getElementById('info-diff');
+    diffEl.textContent = item.diff || '';
+
+    const linksEl = document.getElementById('info-links');
+    linksEl.innerHTML = '';
+    const addLink = (text, action) => {
+        const a = Object.assign(document.createElement('a'), { className:'info-link', textContent:text });
+        a.addEventListener('click', e => { e.preventDefault(); action(); });
+        linksEl.appendChild(a);
+    };
+    addLink('\u2193 Section 4.1', () => scrollToSection('section41'));
+    if (item.diag2All || item.scrollTo) addLink('\u2193 Section 4.3 STEP-080', () => scrollToSection('section43'));
+    addLink('\u2197 Azure-native diagram', () => { window.open('azure-networking-flowchart.html','_blank'); });
+
+    document.getElementById('info-banner').classList.add('show');
+    document.getElementById('clear-btn').classList.add('show');
+    document.querySelectorAll('.pill').forEach(p => p.classList.toggle('sel', p.dataset.type === type && p.dataset.id === id));
+
+    const forceSection = (item.diag2All || item.scrollTo) ? 'section43' : null;
+    scrollToMatchedNodes(item.nodes || [], forceSection);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WALKTHROUGH
+// ─────────────────────────────────────────────────────────────────────────────
+function startWalkthrough(wid) {
+    const w = WALKS[wid];
+    if (!w) return;
+    WALK_STATE = { id: wid, stepIdx: 0 };
+    CURR = null;
+    document.getElementById('info-banner').classList.remove('show');
+    document.getElementById('walk-controls').classList.add('show');
+    document.getElementById('clear-btn').classList.add('show');
+    document.querySelectorAll('.pill').forEach(p => p.classList.toggle('sel', p.dataset.id === wid));
+    renderWalkStep();
+}
+
+function renderWalkStep() {
+    if (!WALK_STATE) return;
+    const w = WALKS[WALK_STATE.id];
+    const step = w.steps[WALK_STATE.stepIdx];
+    const total = w.steps.length;
+    const idx   = WALK_STATE.stepIdx;
+
+    document.getElementById('walk-progress').textContent = `Step ${idx+1} of ${total}`;
+    document.getElementById('walk-step-title').textContent = step.title;
+    document.getElementById('walk-step-desc').textContent  = step.desc;
+    document.getElementById('walk-prev').disabled = idx === 0;
+    document.getElementById('walk-next').disabled = idx === total - 1;
+
+    const matched = new Set(step.nodes.map(n => n.toUpperCase()));
+    const d2m = new Set(step.nodes.filter(n => DIAG2_NODES.includes(n)).map(n => n.toUpperCase()));
+    applyToIdx(IDX.d1, matched, false, '#3fb950');
+    if (d2m.size > 0) applyToIdx(IDX.d2, d2m, false, '#3fb950');
+    else softDim(IDX.d2);
+
+    scrollToMatchedNodes(step.nodes, d2m.size > 0 ? 'section43' : null);
+}
+
+function walkStep(delta) {
+    if (!WALK_STATE) return;
+    const w = WALKS[WALK_STATE.id];
+    WALK_STATE.stepIdx = Math.max(0, Math.min(w.steps.length - 1, WALK_STATE.stepIdx + delta));
+    renderWalkStep();
+}
+
+function clearFilter() {
+    CURR = null; WALK_STATE = null;
+    resetIdx(IDX.d1); resetIdx(IDX.d2);
+    document.getElementById('info-banner').classList.remove('show');
+    document.getElementById('walk-controls').classList.remove('show');
+    document.getElementById('clear-btn').classList.remove('show');
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('sel'));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SCROLL
+// ─────────────────────────────────────────────────────────────────────────────
+function scrollToSection(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        const barH = document.getElementById('sticky-top').offsetHeight;
+        const top  = el.getBoundingClientRect().top + window.scrollY - barH - 10;
+        window.scrollTo({ top: Math.max(0, top), behavior:'smooth' });
+    }));
+}
+
+function scrollToMatchedNodes(nodeIds, forceSectionId) {
+    if (forceSectionId) { scrollToSection(forceSectionId); return; }
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        const barH  = document.getElementById('sticky-top').offsetHeight;
+        const viewH = window.innerHeight;
+        const rects = nodeIds
+            .map(id => IDX.d1?.nodes[id.toUpperCase()])
+            .filter(Boolean)
+            .map(el => el.getBoundingClientRect());
+        if (rects.length === 0) { scrollToSection('section41'); return; }
+        const groupTop    = Math.min(...rects.map(r => r.top));
+        const groupBottom = Math.max(...rects.map(r => r.bottom));
+        const contentH    = viewH - barH;
+        if (groupTop >= barH + 10 && groupBottom <= viewH - 10) return;
+        let targetY;
+        if ((groupBottom - groupTop) > contentH * 0.65) {
+            targetY = window.scrollY + groupTop - barH - 24;
+        } else {
+            const groupCenter = (groupTop + groupBottom) / 2;
+            const viewCenter  = barH + contentH / 2;
+            targetY = window.scrollY + groupCenter - viewCenter;
+        }
+        window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+    }));
+}
+
+function scrollToTop() { window.scrollTo({ top: 0, behavior:'smooth' }); }
+
+window.addEventListener('scroll', () => {
+    document.getElementById('back-top').classList.toggle('show', window.scrollY > 100);
+}, { passive: true });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB SWITCHING
+// ─────────────────────────────────────────────────────────────────────────────
+function switchTab(cat, btn) {
+    clearFilter();
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    document.querySelectorAll('.pill-group').forEach(g => g.classList.remove('active'));
+    const pg = document.getElementById('pills-' + cat);
+    if (pg) pg.classList.add('active');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUILD PILLS
+// ─────────────────────────────────────────────────────────────────────────────
+function trunc(s, n) { return s.length > n ? s.slice(0,n)+'\u2026' : s; }
+
+function buildPills() {
+    const sets = {
+        tier: { el:document.getElementById('pills-tier'), fn: f => f.label+(f.step?' \u00b7 '+f.step:''), type:'tier' },
+        scn:  { el:document.getElementById('pills-scn'),  fn: f => f.id+' \u00b7 '+trunc(f.subtitle,28), type:'scn'  },
+        req:  { el:document.getElementById('pills-req'),  fn: f => f.id+' \u00b7 '+trunc(f.subtitle,26), type:'req'  },
+        step: { el:document.getElementById('pills-step'), fn: f => f.id+' \u00b7 '+trunc(f.subtitle,26), type:'step' },
+        osi:  { el:document.getElementById('pills-osi'),  fn: f => f.label, type:'osi' },
+        diff: { el:document.getElementById('pills-diff'), fn: f => f.label, type:'diff' },
+    };
+
+    const changeColors = { new:'var(--sase)', same:'var(--green)', changed:'#d29922', removed:'var(--danger)', gap:'var(--danger)' };
+
+    Object.entries(sets).forEach(([type, { el, fn }]) => {
+        FD[type].forEach(item => {
+            const btn = document.createElement('button');
+            btn.className = 'pill';
+            if (type === 'osi') btn.dataset.osi = item.id;
+            if (type === 'diff') {
+                btn.className += ' new-sase';
+                const color = changeColors[item.changeType] || 'var(--sase)';
+                btn.style.borderColor = color;
+            } else if (item.changeType === 'gap') {
+                // partner-required / capability gap - red border to signal limitation
+                btn.style.borderColor = 'var(--danger)';
+                btn.style.color = 'var(--danger)';
+            }
+            btn.dataset.type = type; btn.dataset.id = item.id;
+            btn.textContent = fn(item); btn.title = item.subtitle || item.desc || '';
+            btn.addEventListener('click', () => { if (btn.classList.contains('sel')) clearFilter(); else applyFilter(type, item.id); });
+            el.appendChild(btn);
+        });
+    });
+
+    // Walkthrough pills
+    const wEl = document.getElementById('pills-walk');
+    Object.entries(WALKS).forEach(([wid, w]) => {
+        const btn = document.createElement('button');
+        btn.className = 'pill walk-pill'; btn.dataset.type = 'walk'; btn.dataset.id = wid;
+        btn.textContent = '\u25BA ' + w.title; btn.title = 'Step-by-step walkthrough';
+        btn.addEventListener('click', () => { if (btn.classList.contains('sel')) clearFilter(); else startWalkthrough(wid); });
+        wEl.appendChild(btn);
+    });
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') clearFilter();
+    if (WALK_STATE) {
+        if (e.key === 'ArrowRight') walkStep(+1);
+        if (e.key === 'ArrowLeft')  walkStep(-1);
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────────
+buildPills();
+
+window.addEventListener('diagrams-ready', () => {
+    setTimeout(() => {
+        const svgs = document.querySelectorAll('.diagram-wrap svg');
+        if (svgs[0]) { IDX.d1 = buildIdx(svgs[0]); }
+        if (svgs[1]) { IDX.d2 = buildIdx(svgs[1]); }
+        console.log('[GlobalParks SASE] Diag-1 nodes:', Object.keys(IDX.d1?.nodes||{}).join(', '));
+        console.log('[GlobalParks SASE] Diag-2 nodes:', Object.keys(IDX.d2?.nodes||{}).join(', '));
+    }, 400);
+});
+</script>
+</body>
+</html>

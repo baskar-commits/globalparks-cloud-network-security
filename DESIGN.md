@@ -42,6 +42,8 @@
 >
 > Use the **Tier**, **Step**, **Scenario**, **Requirement**, and **OSI Layer** filter tabs to highlight the relevant components, or step through the **Walkthrough** mode for SCN-009 and SCN-010 to see end-to-end visitor flows animated node by node.
 
+**SASE alternative architecture:** For the same GlobalParks requirements re-architected with Secure Access Service Edge (SASE) at the edge instead of Hub VNets, Azure Firewall, and Virtual WAN on the privileged path, see companion **[SASE-DESIGN.md](SASE-DESIGN.md)** and the interactive **[sase-networking-flowchart.html](sase-networking-flowchart.html)** (same filtering and walkthrough pattern as this document's HTML diagram).
+
 ---
 
 GlobalParks is a globally distributed web and mobile platform serving millions of national park visitors, while simultaneously providing secure backend access to park rangers and internal administrators. The platform operates across 12 Azure regions spanning the Americas, Europe, and Asia, and must scale to handle peak visitor traffic from any region in the world. Sensitive reservation and payment data must be completely isolated from the public internet, privileged admin access must be subject to continuous risk-aware verification, and all on-premises park systems must connect securely to the cloud without exposing management interfaces.
@@ -67,7 +69,7 @@ The architecture uses a **Hub and Spoke Virtual Network topology** across 12 reg
 | **MFA** | Multi-Factor Authentication | Requiring two or more verification factors (password + authenticator app, FIDO2 key, etc.) before granting access |
 | **NSG** | Network Security Group | Azure stateful firewall applied at the subnet or NIC level; enforces allow/deny rules based on source/destination IP, port, and protocol |
 | **NVA** | Network Virtual Appliance | A third-party firewall or network device (e.g. Palo Alto, Fortinet) deployed as a VM in Azure, as an alternative to Azure Firewall |
-| **OWASP** | Open Web Application Security Project | An open-source foundation that publishes the OWASP Top 10 — the industry-standard list of the most critical web application security risks |
+| **OWASP** | Open Web Application Security Project | An open-source foundation that publishes the OWASP Top 10 - the industry-standard list of the most critical web application security risks |
 | **P2S** | Point-to-Site VPN | A per-device encrypted VPN tunnel from an individual device to Azure, authenticated using Entra ID credentials or certificates |
 | **PoP** | Point of Presence | One of Microsoft's 200+ globally distributed edge nodes where Azure Front Door terminates TCP connections and applies WAF/DDoS inspection |
 | **Private Endpoint** | Azure Private Endpoint | A virtual NIC injected into a VNet subnet with a private IP, providing access to a PaaS service (Azure SQL, Cosmos DB) over the private network |
@@ -197,25 +199,25 @@ The table below maps each tier to the specific Azure services that provide detec
 
 | Tier | Step | Azure Service | Detection | Prevention |
 |---|---|---|---|---|
-| T0 - External Users | STEP-010 | Entra ID Protection | Risky sign-in events, leaked credential detection | — |
+| T0 - External Users | STEP-010 | Entra ID Protection | Risky sign-in events, leaked credential detection | - |
 | T2 - Identity | STEP-020 | Entra Conditional Access | Risk signal aggregation (sign-in risk, device compliance, location) | Hard block (High risk), step-up MFA (Medium risk), device compliance gate |
-| T3 - Private Connectivity | STEP-040/041 | VPN Gateway | IKE negotiation failures, certificate errors logged | Certificate-based mutual auth — invalid clients rejected before session |
-| T3 - Private Connectivity | STEP-040/041 | VWAN Routing Intent | — | Forces all gateway traffic to Hub Firewall — no spoke bypass path exists |
+| T3 - Private Connectivity | STEP-040/041 | VPN Gateway | IKE negotiation failures, certificate errors logged | Certificate-based mutual auth - invalid clients rejected before session |
+| T3 - Private Connectivity | STEP-040/041 | VWAN Routing Intent | - | Forces all gateway traffic to Hub Firewall - no spoke bypass path exists |
 | T1 - Internet Edge | STEP-030 | Azure Front Door + WAF | L7 attack pattern logging (WAF block events) | OWASP/DRS rule blocking, geo-blocking, bot protection, rate limiting |
 | T1 - Internet Edge | STEP-030 | Azure DDoS Protection Standard | Volumetric attack telemetry, per-IP anomaly detection | Adaptive scrubbing at Azure edge before packets enter any VNet |
-| T4 - Hub VNet | STEP-050 | Azure Firewall Premium — IDPS | 2,500+ signature-based threat alerts, lateral movement detection | Inline block of matched attack patterns across all traffic sources |
-| T4 - Hub VNet | STEP-050 | Azure Firewall Premium — TLS Inspection | Encrypted payload inspection (attacks hidden in HTTPS are visible) | Decrypt, inspect, re-encrypt — enforced for all HTTPS sessions |
-| T4 - Hub VNet | STEP-050 | Azure Firewall — Threat Intelligence | Known malicious IP and domain alerts (Microsoft TI feed) | Auto-block of blacklisted IPs, domains, and FQDNs |
+| T4 - Hub VNet | STEP-050 | Azure Firewall Premium - IDPS | 2,500+ signature-based threat alerts, lateral movement detection | Inline block of matched attack patterns across all traffic sources |
+| T4 - Hub VNet | STEP-050 | Azure Firewall Premium - TLS Inspection | Encrypted payload inspection (attacks hidden in HTTPS are visible) | Decrypt, inspect, re-encrypt - enforced for all HTTPS sessions |
+| T4 - Hub VNet | STEP-050 | Azure Firewall - Threat Intelligence | Known malicious IP and domain alerts (Microsoft TI feed) | Auto-block of blacklisted IPs, domains, and FQDNs |
 | T5A - B2C Spoke | STEP-060A | App Gateway WAF v2 | Second-layer OWASP detection, application-specific custom rule logging | WAF blocking tuned to GlobalParks public API surface |
 | T5A - B2C Spoke | STEP-060A | NSG (web subnet) | NSG flow log anomalies | Allow-list: inbound from App Gateway source IPs only |
-| T5B - Admin Spoke | STEP-060B | Internal App Gateway WAF v2 | Management API HTTP-layer attack detection | WAF blocking — independently tuned for admin/ranger API endpoints |
+| T5B - Admin Spoke | STEP-060B | Internal App Gateway WAF v2 | Management API HTTP-layer attack detection | WAF blocking - independently tuned for admin/ranger API endpoints |
 | T5B - Admin Spoke | STEP-060B | NSG (app subnet) | NSG flow log anomalies | Allow-list: inbound from internal AGW source IPs only |
 | T6 - Data Tier | STEP-070 | NSG + ASG | Unauthorised subnet access attempts (flow logs to Sentinel) | Allow-list: only ASG `asg-b2c-web` and `asg-admin-app` |
 | T6 - Data Tier | STEP-070 | Defender for SQL | Query anomalies, injection attempts at DB layer, unusual bulk reads | Alert fed to Sentinel; Playbook can quarantine via Firewall rule |
-| T6 - Data Tier | STEP-070 | Azure Private Endpoints | — | Eliminates public endpoint entirely — no public IP, no public DNS record |
+| T6 - Data Tier | STEP-070 | Azure Private Endpoints | - | Eliminates public endpoint entirely - no public IP, no public DNS record |
 | T7 - Security Operations | STEP-080 | Microsoft Sentinel | AI Fusion multi-stage attack correlation, custom analytics rules | SOAR Playbooks: IP block at Firewall, account disable, VM isolation |
 | T7 - Security Operations | STEP-080 | Defender for Cloud | CSPM posture drift, vulnerability assessment, compliance dashboards | Azure Policy blocks non-compliant resource deployments at creation time |
-| T7 - Security Operations | STEP-080 | Azure Monitor + Log Analytics | Centralised telemetry aggregation (KQL queryable across all regions) | — |
+| T7 - Security Operations | STEP-080 | Azure Monitor + Log Analytics | Centralised telemetry aggregation (KQL queryable across all regions) | - |
 | T7 - Security Operations | STEP-080 | Azure Policy + GitOps | Policy violation detection | Preventive: deployment-time enforcement + PR-gated Firewall rule changes |
 | T8 - On-premises | STEP-090 | Azure Arc | Hybrid resource posture; Defender for Servers on on-premises VMs | Policy and governance extended to on-premises workloads |
 | T8 - On-premises | STEP-090 | Azure IoT Hub | Device identity anomalies, telemetry integrity | X.509 certificate device authentication; per-device policy enforcement |
