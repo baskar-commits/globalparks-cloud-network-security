@@ -6,7 +6,7 @@
 | **Audience** | Security Architects, Network Team |
 | **Cloud scope** | Microsoft Azure - SASE / SSE overlay |
 | **Operations model** | Central Cloud SRE team + SASE vendor operations |
-| **Status** | v1.12 - SASE iteration |
+| **Status** | v1.13 - SASE iteration |
 | **Last updated** | 2026-04-03 |
 | **Companion document** | [DESIGN.md](DESIGN.md) - Azure-native Hub-and-Spoke reference architecture |
 
@@ -164,11 +164,15 @@ GlobalParks stays an **eight-tier** security model (same tier numbers as `DESIGN
 
 ### T3 and T4 in the diagram (subset)
 
-The interactive diagram is **[sase-networking-flowchart.html](sase-networking-flowchart.html)** (same Mermaid structure as Appendix A, with filters and walkthroughs). There is **no separate PNG** in the repo; the HTML and GitHub-rendered Mermaid are the sources of truth.
+The interactive diagram is **[sase-networking-flowchart.html](sase-networking-flowchart.html)** (same Mermaid structure as Appendix A, with filters and walkthroughs).
 
 **In the flowchart:** open the file in a browser, choose the **Tier** tab, then select **Tier 3** and **Tier 4** in turn to isolate those layers. For end-to-end context, use **Walkthrough** (Admin SD-WAN or Ranger ZTNA) so T3 and T4 appear in path order.
 
-Below is a **minimal** view of only T3 and T4 so this section is not empty when read on GitHub. Labels are shortened; the complete graph is in Appendix A.
+Many **local Markdown previews** (default Cursor / VS Code without a Mermaid extension) show **mermaid** fenced code blocks as plain text. **GitHub** normally renders those blocks as diagrams. This **PNG** is exported from the same snippet so the picture is visible offline and in editors that only render images. Labels are shortened; the complete graph is in Appendix A.
+
+![T3 SASE PoP layer to T4 Private Access Connector (subset)](docs/images/sase-section4-t3-t4.png)
+
+*Regenerate the PNG after changing the diagram:* from the repo root run `npx @mermaid-js/mermaid-cli -i docs/diagrams/sase-section4-t3-t4.mmd -o docs/images/sase-section4-t3-t4.png -b white` (input file mirrors the Mermaid below).
 
 ```mermaid
 flowchart TB
@@ -401,6 +405,7 @@ Same **STEP-###** sequence as `DESIGN.md` Section 5. **Full step narratives, com
 | 1.10 | 2026-04-03 | **Section 1** adds **Before you read this section** (product context, hub vs SASE edge framing, pointers to **Appendix C** and flowchart); foundational principles, structural change, and what does not change paragraphs unchanged. |
 | 1.11 | 2026-04-03 | **Section 4** expanded: eight-tier context, flowchart **Tier** / **Walkthrough** steps, minimal **T3/T4** Mermaid subset, **How to read** table; stable anchors for **Appendix E** §4.1 to §4.3; doc status v1.11. |
 | 1.12 | 2026-04-03 | **Sections 5 and 6** index tables add a **Description** column before **Detail** (one-line context per **STEP** / **SCN**); doc status v1.12. |
+| 1.13 | 2026-04-03 | **Section 4** adds exported **PNG** for T3/T4 subset (`docs/images/sase-section4-t3-t4.png`) plus Mermaid source file (`docs/diagrams/sase-section4-t3-t4.mmd`) for editors that do not render Mermaid; doc status v1.13. |
 
 ---
 

@@ -2,10 +2,10 @@
 *.docx
 *.doc
 
-# Temporary Mermaid export files
-*.png
-*.svg
-*.mmd
+# Temporary Mermaid export files (repo root only; tracked diagrams live under docs/)
+/*.png
+/*.svg
+/*.mmd
 
 # OS and editor noise
 Thumbs.db

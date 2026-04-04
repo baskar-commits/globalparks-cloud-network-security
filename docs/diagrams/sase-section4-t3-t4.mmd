@@ -1,0 +1,10 @@
+flowchart TB
+    subgraph T3["Tier 3 - STEP-040 and STEP-041 - SASE PoP layer"]
+        direction TB
+        POP["SASE PoPs - FWaaS IDPS TLS inspection\nSD-WAN to PoP · SWG · CASB · optional RBI partner"]
+    end
+    subgraph T4["Tier 4 - STEP-050 - Private Access Connector"]
+        direction TB
+        PAC["Entra Private Access Connector\nOutbound-only in app VNet - no inbound public IP"]
+    end
+    POP -->|"Inspected session toward published apps"| PAC
