@@ -6,22 +6,38 @@
 | **Audience** | Security Architects, Network Team |
 | **Cloud scope** | Microsoft Azure - SASE / SSE overlay |
 | **Operations model** | Central Cloud SRE team + SASE vendor operations |
-| **Status** | v1.7 - SASE iteration |
-| **Last updated** | 2026-03-27 |
+| **Status** | v1.12 - SASE iteration |
+| **Last updated** | 2026-04-03 |
 | **Companion document** | [DESIGN.md](DESIGN.md) - Azure-native Hub-and-Spoke reference architecture |
 
 ---
 
 ## How to use this document
 
-This document is a **companion to `DESIGN.md`**. It re-architects the same GlobalParks platform using **SASE (Secure Access Service Edge)** principles. Every section follows the same structure as `DESIGN.md` and includes a **comparison table** showing what changes, what stays the same, and the reasoning behind each difference.
+This document is a **companion to `DESIGN.md`**. It describes the same GlobalParks platform, but shifts security enforcement toward **SASE (Secure Access Service Edge)**. The layout mirrors `DESIGN.md`: comparison tables show what changes, what stays put, and why.
 
-Where content is identical to the Azure-native design, this document states so explicitly and focuses on the delta. Where the SASE approach introduces a fundamentally different component or topology, full detail is provided.
+When something matches the Azure-native design, this doc says so and moves on. When SASE introduces a new component or topology, the deep text usually lives in an appendix so the main sections stay short.
 
-**Reading path:** Sections **1–2**, **8–10**, and the **stub sections 3–7** give the short story. **Appendices C–H** hold glossary, persona detail, security architecture tables, STEP walkthrough, SCN traces, and full traceability/cost material. Each appendix links back to its main section.
+**Suggested reading order:** Skim **Sections 1 and 2**, then **Sections 8 through 10** if you care about decisions and open questions. **Sections 3 through 7** are short stubs with links. **Appendices C through H** hold the long tables, walkthroughs, scenarios, cost bands, and the full traceability matrix. Each appendix links back to its stub.
 
+### Using this document with the flowchart
 
-> **Interactive companion** - Open **[sase-networking-flowchart.html](sase-networking-flowchart.html)** alongside this document. It contains the SASE-specific architecture diagram with full filtering by Tier, Scenario, Step, Requirement, and OSI Layer, plus SASE-specific walkthrough scenarios for the Admin (SD-WAN) and Ranger (ZTNA) paths.
+Keep **[sase-networking-flowchart.html](sase-networking-flowchart.html)** open in a browser next to this file. The diagram and the markdown use the same **`STEP-###`**, **`SCN-###`**, and **`REQ-#.#`** labels, so you can jump between them without guessing.
+
+**First pass (orientation):** Read **Section 1** and the **Key Differences** table. In the flowchart, use the **Tier** filter from **T0** upward so you follow the same story as the architecture tiers.
+
+**When you want detail on one slice:** Pick **Step**, **Scenario**, **Requirement**, or **OSI Layer** in the flowchart, then open the matching row in **Section 5 or 6** (indexes) and follow the link to **Appendix F or G**. Tier-level security mapping lives in **Appendix E**; compliance and vendor gaps are summarized in **Section 7** with the full matrix in **Appendix H**.
+
+**Narrative walkthrough:** Use the **Walkthrough** tab for **Admin (SD-WAN)** or **Ranger (ZTNA)**. When the text raises a policy choice (for example optional **GSA** on admins), read **Appendix D** or the **ADRs** in **Section 8**.
+
+| In the flowchart | Where to read |
+|---|---|
+| Tier or Step | [Section 5](#5-architecture-walkthrough) (index), then [Appendix F](#appendix-f---architecture-walkthrough-step-detail) |
+| Scenario | [Section 6](#6-scenario-traces) (index), then [Appendix G](#appendix-g---scenario-traces-full-detail) |
+| Requirement | [Appendix E](#appendix-e---security-architecture-overview-full-detail) and [Appendix H](#appendix-h---requirements-traceability-full-detail) |
+| Walkthrough copy | Short descriptions in the HTML plus the matching **SCN** in **Appendix G** |
+
+> **Tip:** If the doc feels dense, stay in **Sections 1 to 2** and the flowchart filters first. Add appendices only when you need proof or implementation nuance.
 
 ---
 
@@ -30,11 +46,11 @@ Where content is identical to the Azure-native design, this document states so e
 1. [Executive Summary](#1-executive-summary)
    - 1.1 [Glossary and Acronyms](#11-glossary-and-acronyms)
 2. [Platform Context and Constraints](#2-platform-context-and-constraints)
-3. [User Personas](#3-user-personas) — [detail → Appendix D](#appendix-d---user-personas-full-detail)
-4. [Security Architecture Overview](#4-security-architecture-overview) — [detail → Appendix E](#appendix-e---security-architecture-overview-full-detail)
-5. [Architecture Walkthrough](#5-architecture-walkthrough) — [detail → Appendix F](#appendix-f---architecture-walkthrough-step-detail)
-6. [Scenario Traces](#6-scenario-traces) — [detail → Appendix G](#appendix-g---scenario-traces-full-detail)
-7. [Requirements Traceability Matrix](#7-requirements-traceability-matrix) — [detail → Appendix H](#appendix-h---requirements-traceability-full-detail)
+3. [User Personas](#3-user-personas); [Appendix D (full detail)](#appendix-d---user-personas-full-detail)
+4. [Security Architecture Overview](#4-security-architecture-overview); [Appendix E (full detail)](#appendix-e---security-architecture-overview-full-detail)
+5. [Architecture Walkthrough](#5-architecture-walkthrough); [Appendix F (STEP detail)](#appendix-f---architecture-walkthrough-step-detail)
+6. [Scenario Traces](#6-scenario-traces); [Appendix G (full detail)](#appendix-g---scenario-traces-full-detail)
+7. [Requirements Traceability Matrix](#7-requirements-traceability-matrix); [Appendix H (full detail)](#appendix-h---requirements-traceability-full-detail)
 8. [Architectural Decisions](#8-architectural-decisions)
 9. [Open Questions](#9-open-questions)
 10. [Revision History](#10-revision-history)
@@ -51,25 +67,26 @@ Where content is identical to the Azure-native design, this document states so e
 
 ## 1. Executive Summary
 
-> **Interactive Architecture Visualization**
-> As you read through this document, keep the SASE live diagram open alongside it.
-> Each `STEP-###`, `SCN-###`, and `REQ-#.#` reference maps directly to a highlighted node in the diagram.
+> **Interactive diagram**
+> Open **[sase-networking-flowchart.html](sase-networking-flowchart.html)** next to this file. The same **`STEP-###`**, **`SCN-###`**, and **`REQ-#.#`** labels appear in the diagram and in the text, so you can filter the picture and then open the matching section or appendix.
 >
-> **[Open sase-networking-flowchart.html →](sase-networking-flowchart.html)**
->
-> Use the **Tier**, **Step**, **Scenario**, **Requirement**, and **OSI Layer** filter tabs, or step through the **Walkthrough** mode for the Admin SD-WAN and Ranger ZTNA paths.
+> Try **Tier** order from T0 upward, or use **Walkthrough** for the Admin (SD-WAN) and Ranger (ZTNA) paths. For a step-by-step reading path, see **[Using this document with the flowchart](#using-this-document-with-the-flowchart)** near the top.
 
 ---
 
-GlobalParks is the same globally distributed platform for millions of park visitors, rangers, and administrators described in `DESIGN.md`. The business requirements, personas, compliance obligations, and data residency constraints are identical. What changes is **where and how security is enforced**.
+**Before you read this section**
+
+GlobalParks is the booking and operations platform for parks, rangers, visitors, and admin staff described in **`DESIGN.md`**. This document keeps that product and compliance story and compares **two ways to secure it**: inspection in **Azure hub** firewalls (the baseline in `DESIGN.md`) versus inspection at **SASE edge** PoPs before traffic reaches Azure (this document). If acronyms pile up (`ZTNA`, `FWaaS`, `SWG`, and so on), skim **[Appendix C](#appendix-c---glossary-and-acronyms-sase-extensions)** first or keep **[sase-networking-flowchart.html](sase-networking-flowchart.html)** open and follow **STEP** / **SCN** labels from the [flowchart guide](#using-this-document-with-the-flowchart).
+
+The business requirements, personas, compliance obligations, and data residency constraints are identical to **`DESIGN.md`**. What changes is **where and how security is enforced**.
 
 In the Azure-native design, security inspection is **inside Azure**: 12 Hub VNets each hosting 2 Azure Firewall Premium instances (24 total), with traffic forced through them via Virtual WAN Routing Intent. In the SASE architecture, security inspection moves **outside Azure to the network edge**: a global network of SASE Points of Presence (PoPs) apply FWaaS, IDPS, TLS inspection, SWG, and CASB before traffic ever enters an Azure VNet. Azure's role becomes a clean backend, not a security enforcement hub.
 
-The three foundational principles remain unchanged - **Zero Trust**, **defence in depth**, and **central governance with regional workload isolation** - but the implementation of each shifts from Azure-native constructs to SASE cloud-delivered services.
+The three foundational principles stay the same: **Zero Trust**, **defence in depth**, and **central governance with regional workload isolation**. Only the implementation moves from Azure-native building blocks to SASE-style cloud services.
 
-**The single most impactful change:** VPN Gateway (P2S and S2S) and Azure Virtual WAN are eliminated from the privileged connectivity path. Park Rangers connect via a **ZTNA agent** (Entra Private Access). Corporate administrators connect via **SD-WAN** to the nearest SASE PoP. Before traffic reaches any Azure VNet, both paths are inspected at the PoP by **FWaaS** (IDPS, TLS inspection, threat intelligence), **SWG** (Entra Internet Access for URL and web policy), **CASB** (Defender for Cloud Apps for SaaS visibility, session policy, and SaaS-side DLP signals), and, where required, **RBI** (Remote Browser Isolation via a **partner** such as Zscaler, Prisma, or Menlo, because Microsoft SSE has no native RBI). The 12 Hub VNets and 24 Azure Firewall instances are eliminated.
+**The biggest structural change:** **P2S** and **S2S** VPN Gateway paths and **Azure Virtual WAN** drop out of the privileged connectivity story. **Park Rangers** use a **ZTNA** client (**Entra Private Access**). **Corporate administrators** use **SD-WAN** into the nearest **SASE PoP**. Before traffic hits any Azure VNet, the PoP applies **FWaaS** (IDPS, TLS inspection, threat intelligence), **SWG** (**Entra Internet Access**), and **CASB** (**Defender for Cloud Apps**). If you need **RBI**, that is a **partner** capability (for example Zscaler, Prisma, or Menlo), because **Microsoft SSE** does not ship native RBI today. The twelve hub VNets and twenty-four **Azure Firewall** instances in the reference design go away under a pure SASE path.
 
-**Design trade-off (administrators and ZTNA):** The baseline architecture assumes administrators on the **corporate LAN** reach the SASE fabric through a **site-based SD-WAN** path, **without** requiring a **per-user GSA / ZTNA client** on every admin laptop. Private access to GlobalParks apps still flows **through the SASE PoP** and **Private Access Connector** with Entra ID and Conditional Access; the difference from rangers is **how the workstation attaches** (trusted branch edge vs user agent). That simplifies rollout and avoids a second client stack on standard corporate desktops. It **does not** claim that **insider threat**, **lateral movement on the LAN**, or **compromised corp PCs** are impossible. For stronger **defense in depth** and **app-level parity** with rangers, see [Administrators, ZTNA, and defense in depth](#administrators-ztna-and-defense-in-depth-design-trade-off) in **[Appendix D](#appendix-d---user-personas-full-detail)** (summary in [Section 3](#3-user-personas)) and [Q-S09](#9-open-questions).
+**Design trade-off (administrators and ZTNA):** The baseline assumes admins on the **corporate LAN** reach SASE through **site-based SD-WAN**, not a **per-user GSA** client on every laptop. Private apps still flow through the **SASE PoP** and **Private Access Connector** with **Entra ID** and **Conditional Access**; rangers differ because they attach from the field with a user agent. That keeps rollout simpler and avoids a second client on standard desktops. It is **not** a claim that insider risk, LAN lateral movement, or compromised PCs are impossible. For a tighter story on optional **GSA** on admins, read [Administrators, ZTNA, and defense in depth](#administrators-ztna-and-defense-in-depth-design-trade-off) in **[Appendix D](#appendix-d---user-personas-full-detail)** and the short note in [Section 3](#3-user-personas), plus [Q-S09](#9-open-questions).
 
 **What does not change:** B2C public visitor traffic continues to use Azure Front Door Premium as the internet edge - Front Door is itself a SASE-class edge service and is not replaced. The data tier (Private Endpoints, Azure SQL, Cosmos DB) is unchanged. Microsoft Sentinel, Defender for Cloud, and Azure Policy remain the security operations and governance layer, enriched with additional SASE vendor telemetry.
 
@@ -134,14 +151,46 @@ Personas and compliance context match `DESIGN.md`; **connectivity and access gra
 | Persona | Identity (unchanged) | Azure-native connectivity | SASE connectivity | Key difference |
 |---|---|---|---|---|
 | **B2C Visitor** | Entra External ID - social login | Front Door → Hub Firewall → B2C Spoke | Front Door → App Gateway directly | Hub Firewall hop removed from B2C path |
-| **Park Administrator** | Entra ID + Conditional Access + MFA | Corporate LAN → ExpressRoute → VWAN → Hub Firewall → Spoke | Corporate LAN → SD-WAN → SASE PoP → FWaaS → Private Access Connector → Spoke | No dedicated circuit; **baseline** no GSA on device—optional hardening in Appendix D |
+| **Park Administrator** | Entra ID + Conditional Access + MFA | Corporate LAN → ExpressRoute → VWAN → Hub Firewall → Spoke | Corporate LAN → SD-WAN → SASE PoP → FWaaS → Private Access Connector → Spoke | No dedicated circuit; **baseline** no GSA on device; optional hardening in Appendix D |
 | **Park Ranger** | Entra ID + Conditional Access + MFA + risk-based | Field device → P2S VPN client → VWAN → Hub Firewall → Spoke | Field device → GSA ZTNA agent → SASE PoP → FWaaS → Private Access Connector → Spoke | App-level access replaces network tunnel; per-app policy at PoP |
 
 ---
 
 ## 4. Security Architecture Overview
 
-Tiers **T3** and **T4** change fundamentally (SASE PoP + Private Access Connector replace VWAN, VPN gateways, and hub firewalls). B2C tiers **T1** and data tier **T6** stay aligned with `DESIGN.md`. **Tier-by-tier comparison, OSI mapping, and detection/prevention tables** are in **[Appendix E - Security Architecture Overview (full detail)](#appendix-e---security-architecture-overview-full-detail)**.
+GlobalParks stays an **eight-tier** security model (same tier numbers as `DESIGN.md` and **[Appendix A](#appendix-a---architecture-diagram-mermaid-source)**). **Tiers T3 and T4** are where the SASE design diverges: **SASE PoP** services replace **Virtual WAN, VPN gateways, and hub firewalls**; the **Private Access Connector** becomes the in-VNet anchor for admin and ranger traffic. **T1** (B2C internet edge) and **T6** (data tier) stay aligned with `DESIGN.md`; other tiers gain or lose components around that spine.
+
+**Full detail** (every tier, Azure-native vs SASE, OSI mapping, detection and prevention) is in **[Appendix E](#appendix-e---security-architecture-overview-full-detail)**. **Step-by-step traffic** for the PoP and connector is in **[Appendix F](#appendix-f---architecture-walkthrough-step-detail)** (**STEP-040**, **STEP-041**, **STEP-050**).
+
+### T3 and T4 in the diagram (subset)
+
+The interactive diagram is **[sase-networking-flowchart.html](sase-networking-flowchart.html)** (same Mermaid structure as Appendix A, with filters and walkthroughs). There is **no separate PNG** in the repo; the HTML and GitHub-rendered Mermaid are the sources of truth.
+
+**In the flowchart:** open the file in a browser, choose the **Tier** tab, then select **Tier 3** and **Tier 4** in turn to isolate those layers. For end-to-end context, use **Walkthrough** (Admin SD-WAN or Ranger ZTNA) so T3 and T4 appear in path order.
+
+Below is a **minimal** view of only T3 and T4 so this section is not empty when read on GitHub. Labels are shortened; the complete graph is in Appendix A.
+
+```mermaid
+flowchart TB
+    subgraph T3["Tier 3 - STEP-040 and STEP-041 - SASE PoP layer"]
+        direction TB
+        POP["SASE PoPs - FWaaS IDPS TLS inspection\nSD-WAN to PoP · SWG · CASB · optional RBI partner"]
+    end
+    subgraph T4["Tier 4 - STEP-050 - Private Access Connector"]
+        direction TB
+        PAC["Entra Private Access Connector\nOutbound-only in app VNet - no inbound public IP"]
+    end
+    POP -->|"Inspected session toward published apps"| PAC
+```
+
+### How to read this without overload
+
+| If you want | Go here |
+|---|---|
+| One picture of the **whole** stack | [Appendix A](#appendix-a---architecture-diagram-mermaid-source) or [flowchart](sase-networking-flowchart.html) with no Tier filter |
+| **Azure-native vs SASE** per tier | [Appendix E - 4.1](#appendix-e-41-n-tier-architecture-diagram) |
+| **OSI** and who enforces what | [Appendix E - 4.2](#appendix-e-42-osi-layer-control-mapping) |
+| **Detect vs prevent** by tier | [Appendix E - 4.3](#appendix-e-43-detection-and-prevention-by-tier) |
 
 ---
 
@@ -149,19 +198,19 @@ Tiers **T3** and **T4** change fundamentally (SASE PoP + Private Access Connecto
 
 Same **STEP-###** sequence as `DESIGN.md` Section 5. **Full step narratives, comparison tables, and SCN cross-links** are in **[Appendix F - Architecture Walkthrough (STEP detail)](#appendix-f---architecture-walkthrough-step-detail)**.
 
-| Step | Title | Detail |
-|---|---|---|
-| STEP-010 | Users and Personas | [Appendix F →](#step-010---users-and-personas) |
-| STEP-020 | Identity and Access | [Appendix F →](#step-020---identity-and-access) |
-| STEP-040 | Connectivity - Administrators (SD-WAN → SASE PoP) | [Appendix F →](#step-040---connectivity---park-administrators-sd-wan-to-sase-pop) |
-| STEP-041 | Connectivity - Rangers (ZTNA) | [Appendix F →](#step-041---connectivity---park-rangers-ztna-via-entra-private-access) |
-| STEP-030 | Internet Edge and Global Routing | [Appendix F →](#step-030---internet-edge-and-global-routing) |
-| STEP-050 | SASE PoP and Private Access Connector | [Appendix F →](#step-050---sase-pop-and-private-access-connector-replaces-hub-vnet) |
-| STEP-060A | B2C App VNet - Public Web Tier | [Appendix F →](#step-060a---b2c-app-vnet---public-web-tier) |
-| STEP-060B | Admin/Ranger App VNet - Internal App Tier | [Appendix F →](#step-060b---adminranger-app-vnet---internal-app-tier) |
-| STEP-070 | Regional Data Tier | [Appendix F →](#step-070---regional-data-tier) |
-| STEP-080 | Security Operations and Governance | [Appendix F →](#step-080---security-operations-and-governance) |
-| STEP-090 | On-premises and Hybrid Systems | [Appendix F →](#step-090---on-premises-and-hybrid-systems) |
+| Step | Title | Description | Detail |
+|---|---|---|---|
+| STEP-010 | Users and Personas | Visitors, admins, and rangers; rangers run **GSA**; many admins rely on site **SD-WAN** without mandatory per-laptop ZTNA. | [Appendix F →](#step-010---users-and-personas) |
+| STEP-020 | Identity and Access | **Entra ID** and **Conditional Access** unchanged in intent; **Entra Private Access** adds an app-level gate under the same policies. | [Appendix F →](#step-020---identity-and-access) |
+| STEP-040 | Connectivity - Administrators (SD-WAN → SASE PoP) | Office **SD-WAN** picks the best underlay to the nearest **PoP**; **FWaaS** inspects before the **Private Access Connector** reaches internal **App Gateway**. | [Appendix F →](#step-040---connectivity---park-administrators-sd-wan-to-sase-pop) |
+| STEP-041 | Connectivity - Rangers (ZTNA) | **GSA** on the device opens TLS to the **PoP** (not a routed VPN); only **published** apps reach Azure via the connector. | [Appendix F →](#step-041---connectivity---park-rangers-ztna-via-entra-private-access) |
+| STEP-030 | Internet Edge and Global Routing | **B2C** stays on **Front Door** + **WAF** + **DDoS**; visitors use **Private Link** to **App Gateway**; admin and ranger web use **SWG** at the **PoP**. | [Appendix F →](#step-030---internet-edge-and-global-routing) |
+| STEP-050 | SASE PoP and Private Access Connector | **FWaaS** at the **PoP** replaces hub **Azure Firewall** choke points; **connector** is outbound-only inside each admin and ranger app VNet. | [Appendix F →](#step-050---sase-pop-and-private-access-connector-replaces-hub-vnet) |
+| STEP-060A | B2C App VNet - Public Web Tier | **App Gateway** + **WAF v2**; **NSG** allows **Front Door** service tag instead of hub firewall IPs; dual WAF is the main visitor **L7** story. | [Appendix F →](#step-060a---b2c-app-vnet---public-web-tier) |
+| STEP-060B | Admin/Ranger App VNet - Internal App Tier | **Internal App Gateway** + **WAF v2**; trusted source is the **PACONN** subnet after the **PoP** brokers the session. | [Appendix F →](#step-060b---adminranger-app-vnet---internal-app-tier) |
+| STEP-070 | Regional Data Tier | **Private Endpoints**, **SQL**, **Cosmos DB**, **ASG**-aware **NSGs**; **unchanged** from `DESIGN.md`; **SASE** does not sit on app-to-data hops. | [Appendix F →](#step-070---regional-data-tier) |
+| STEP-080 | Security Operations and Governance | **Sentinel**, **Defender for Cloud**, **Monitor**, **Azure Policy** plus **GitOps**; add **FWaaS**, **SWG**, and **CASB** logs and **PoP**-aware playbooks. | [Appendix F →](#step-080---security-operations-and-governance) |
+| STEP-090 | On-premises and Hybrid Systems | Legacy branches use **SD-WAN** to the **PoP** instead of **ExpressRoute** tails; **IoT Hub** and **Arc** unchanged; partners via **ZTNA** or **ExpressRoute**. | [Appendix F →](#step-090---on-premises-and-hybrid-systems) |
 
 ---
 
@@ -169,19 +218,19 @@ Same **STEP-###** sequence as `DESIGN.md` Section 5. **Full step narratives, com
 
 **Full step-by-step traces** (with “Back to STEP” links) are in **[Appendix G - Scenario Traces (full detail)](#appendix-g---scenario-traces-full-detail)**.
 
-| Scenario | Summary | Detail |
-|---|---|---|
-| SCN-001 | Public visitor - B2C path without Hub Firewall | [Appendix G →](#scn-001---public-visitor-accesses-the-globalparks-platform) |
-| SCN-002 | Administrator via SD-WAN and SASE | [Appendix G →](#scn-002---park-administrator-accesses-via-sd-wan-and-sase) |
-| SCN-002b | Ranger via ZTNA | [Appendix G →](#scn-002b---park-ranger-accesses-via-ztna) |
-| SCN-003 | DDoS and SQLi on public endpoints | [Appendix G →](#scn-003---attacker-attempts-ddos-and-sqli-against-public-endpoints) |
-| SCN-004 | Cross-region admin traffic via SASE fabric | [Appendix G →](#scn-004---cross-region-traffic) |
-| SCN-005 | SOC multi-stage attack with SASE telemetry | [Appendix G →](#scn-005---soc-investigates-a-multi-stage-attack) |
-| SCN-006 | IoT telemetry (unchanged) | [Appendix G →](#scn-006---iot-sensor-sends-telemetry-to-azure-iot-hub) |
-| SCN-007 | Legacy sync via SD-WAN | [Appendix G →](#scn-007---legacy-park-system-syncs-to-azure-sql) |
-| SCN-008 | Government agency access | [Appendix G →](#scn-008---government-agency-accesses-park-data) |
-| SCN-009 | Sydney visitor / Great Barrier Reef | [Appendix G →](#scn-009---sydney-visitor-books-a-campsite-at-great-barrier-reef-gold-coast-australia) |
-| SCN-010 | Sydney visitor / Yosemite | [Appendix G →](#scn-010---sydney-visitor-books-a-campsite-at-yosemite-national-park-california-usa) |
+| Scenario | Summary | Description | Detail |
+|---|---|---|---|
+| SCN-001 | Public visitor - B2C path without Hub Firewall | External ID sign-in; **Front Door** + **App Gateway** **WAF**; **Private Link** to **App Gateway**; **Cosmos** via **Private Endpoint**; no hub **IDPS** hop. | [Appendix G →](#scn-001---public-visitor-accesses-the-globalparks-platform) |
+| SCN-002 | Administrator via SD-WAN and SASE | HQ admin updates capacity; **SD-WAN** to **PoP**, **FWaaS**, **connector**, internal **App Gateway**; baseline without per-user **GSA** (see **Appendix D** / **Q-S09**). | [Appendix G →](#scn-002---park-administrator-accesses-via-sd-wan-and-sase) |
+| SCN-002b | Ranger via ZTNA | Field ranger with **GSA**; TLS to **PoP**; published trail app only through **connector**; no **VNet** VPN route table on the device. | [Appendix G →](#scn-002b---park-ranger-accesses-via-ztna) |
+| SCN-003 | DDoS and SQLi on public endpoints | Attacker hits **B2C** edge; **DDoS Standard** and **Front Door** **WAF** block; events to **Sentinel** and block-list playbook. | [Appendix G →](#scn-003---attacker-attempts-ddos-and-sqli-against-public-endpoints) |
+| SCN-004 | Cross-region admin traffic via SASE fabric | Admin session enters **Americas** **PoP**; vendor fabric hands off to **Europe** **PoP** and local **connector**; no **VWAN** region pair. | [Appendix G →](#scn-004---cross-region-traffic) |
+| SCN-005 | SOC multi-stage attack with SASE telemetry | **Sentinel** fusion on **Entra** risk, **PoP** **FWaaS** / **IDPS**, and **Defender for SQL**; playbooks can revoke **ZTNA** and block at **PoP**. | [Appendix G →](#scn-005---soc-investigates-a-multi-stage-attack) |
+| SCN-006 | IoT telemetry (unchanged) | Sensor to **IoT Hub** path identical to `DESIGN.md`; **SASE** does not reshape this flow. | [Appendix G →](#scn-006---iot-sensor-sends-telemetry-to-azure-iot-hub) |
+| SCN-007 | Legacy sync via SD-WAN | Branch batch to **SQL** via **SD-WAN** → **PoP** → **connector**; same job behaviour, faster WAN bring-up than dedicated **ExpressRoute**. | [Appendix G →](#scn-007---legacy-park-system-syncs-to-azure-sql) |
+| SCN-008 | Government agency access | Partner **ZTNA** / connector and **B2B**; **FWaaS** + internal **WAF** scope read-only APIs to **Private Endpoint** **SQL**. | [Appendix G →](#scn-008---government-agency-accesses-park-data) |
+| SCN-009 | Sydney visitor / Great Barrier Reef | Regional **B2C** example (**Australia East**); sub-100 ms; hub firewall hop removed; rest matches `DESIGN.md` intent. | [Appendix G →](#scn-009---sydney-visitor-books-a-campsite-at-great-barrier-reef-gold-coast-australia) |
+| SCN-010 | Sydney visitor / Yosemite | Cross-region **B2C** booking; **Cosmos** multi-region write unchanged; visitor still served from **Australia East** **App Gateway**. | [Appendix G →](#scn-010---sydney-visitor-books-a-campsite-at-yosemite-national-park-california-usa) |
 
 ---
 
@@ -195,7 +244,7 @@ Same **STEP-###** sequence as `DESIGN.md` Section 5. **Full step narratives, com
 
 | Symbol | Meaning |
 |---|---|
-| ✅ **Native** | Microsoft products in M365 E3/E5 or Azure—no extra SASE vendor |
+| ✅ **Native** | Microsoft products in M365 E3/E5 or Azure with no extra SASE vendor |
 | ⚠️ **Partial** | Microsoft covers the capability with documented limits |
 | ❌ **Gap** | Needs third-party SASE/FWaaS, SD-WAN partner, or hybrid Azure component |
 
@@ -203,14 +252,14 @@ Same **STEP-###** sequence as `DESIGN.md` Section 5. **Full step narratives, com
 
 | Area | Microsoft SSE / Azure (summary) | Typical gap or partner |
 |---|---|---|
-| B2C edge (REQ-1.x) | Front Door, WAF, DDoS—**unchanged** | — |
-| Identity / ZTNA (REQ-2.x) | Entra ID, CA, Entra Private Access—**enhanced** for app scope | — |
-| Ranger internet / SWG | Entra Internet Access | ⚠️ L7 HTTP/S only; no PoP IDPS—FWaaS partner or hybrid |
+| B2C edge (REQ-1.x) | Front Door, WAF, DDoS (**unchanged**) | None |
+| Identity / ZTNA (REQ-2.x) | Entra ID, CA, Entra Private Access, **enhanced** for app scope | None |
+| Ranger internet / SWG | Entra Internet Access | ⚠️ L7 HTTP/S only; no PoP IDPS; add FWaaS partner or hybrid |
 | CASB / SaaS | Defender for Cloud Apps | ⚠️ Non-Microsoft SaaS depth vs specialist CASB |
 | Privileged IDPS (REQ-4.1 admin/ranger) | Not in Microsoft SSE alone | ❌ Zscaler / Prisma / Cloudflare FWaaS or hybrid Azure Firewall |
 | B2C IDPS (REQ-4.1) | WAF only on B2C path | ❌ Accepted trade-off (ADR-S004); hybrid Firewall if required |
 | Branch WAN (REQ-4.1) | No native SD-WAN | ❌ Validated SD-WAN partner |
-| Segmentation / data (REQ-3.x) | NSG, ASG, Private Endpoints | — **unchanged** |
+| Segmentation / data (REQ-3.x) | NSG, ASG, Private Endpoints | None (**unchanged**) |
 | Posture / SIEM (REQ-4.2, 4.3) | Defender for Cloud, Sentinel | ⚠️ SASE telemetry via connector (native for Microsoft SSE) |
 | DLP (REQ-DLP) | Purview + CASB + SWG | ⚠️ Non-Microsoft SaaS at scale |
 | RBI (REQ-RBI) | Not native in Microsoft SSE | ❌ Partner RBI (Q-S08) |
@@ -266,7 +315,7 @@ Same **STEP-###** sequence as `DESIGN.md` Section 5. **Full step narratives, com
 - SASE vendor PoP availability becomes a dependency for ranger connectivity (SLA must be evaluated against RTO requirement).
 - Offline-first scenarios (rangers in areas with no internet at all) require a fallback - this is unchanged from P2S VPN, which also requires internet connectivity.
 
-**Corporate administrators (baseline):** This ADR does **not** require GSA on every admin PC. Admins reach the same PoP and **Private Access Connector** path via **SD-WAN** (ADR-S003). The **endpoint** trade-off—whether to add **GSA** on admins for app-level parity and insider-threat reduction—is documented in [Appendix D](#administrators-ztna-and-defense-in-depth-design-trade-off) and **Q-S09**.
+**Corporate administrators (baseline):** This ADR does **not** require GSA on every admin PC. Admins reach the same PoP and **Private Access Connector** path via **SD-WAN** (ADR-S003). The **endpoint** trade-off (whether to add **GSA** on admins for app-level parity and insider-threat reduction) is documented in [Appendix D](#administrators-ztna-and-defense-in-depth-design-trade-off) and **Q-S09**.
 
 ---
 
@@ -331,7 +380,7 @@ Same **STEP-###** sequence as `DESIGN.md` Section 5. **Full step narratives, com
 | Q-S06 | Private Access Connector redundancy - how many connectors per App VNet for RTO? | PACONN is in the critical path for admin/ranger access; single connector = single point of failure | SRE | **Open** |
 | Q-S07 | SASE PoP telemetry ingestion format for Sentinel - native connector or Syslog? | Affects telemetry latency, fidelity, and Sentinel cost | SRE / SOC | **Open - depends on ADR-S001 vendor selection** |
 | Q-S08 | Is Remote Browser Isolation (RBI) required for ranger and admin endpoints by PCI-DSS scope or accepted as a risk gap? | Rangers and admins access external portals while holding active ZTNA sessions to payment-adjacent systems. A browser-borne compromise on such a device is a higher-risk event. PCI-DSS DSS v4.0 Req 5 (malware protection) and Req 6 (secure systems) may require RBI for in-scope endpoints. Microsoft SSE has no native RBI - a third-party vendor is required. If not mandated, Microsoft Edge for Business session controls + Defender for Endpoint are the fallback compensating controls. | Security Architect / Compliance | **Open** |
-| Q-S09 | Should GlobalParks require **GSA / Entra Private Access on corporate administrator devices** (not only SD-WAN site path) for defense in depth? | Baseline design uses **SD-WAN to PoP** without mandatory **per-user GSA** on admin laptops. Threats from **inside the corporate network** and **lateral movement** argue for **optional or mandatory GSA** on privileged admins, **micro-segmentation**, or **PAW**—see [Appendix D](#appendix-d---user-personas-full-detail). Decision affects client rollout, helpdesk, and blast-radius story. | Security Architect / IAM | **Open** |
+| Q-S09 | Should GlobalParks require **GSA / Entra Private Access on corporate administrator devices** (not only SD-WAN site path) for defense in depth? | Baseline design uses **SD-WAN to PoP** without mandatory **per-user GSA** on admin laptops. Threats from **inside the corporate network** and **lateral movement** argue for **optional or mandatory GSA** on privileged admins, **micro-segmentation**, or **PAW**. See [Appendix D](#appendix-d---user-personas-full-detail). Decision affects client rollout, helpdesk, and blast-radius story. | Security Architect / IAM | **Open** |
 
 ---
 
@@ -346,13 +395,18 @@ Same **STEP-###** sequence as `DESIGN.md` Section 5. **Full step narratives, com
 | 1.4 | 2026-03-27 | Removed zoom and Inspect tiers from sase-networking-flowchart.html (filtering and walkthrough unchanged) |
 | 1.5 | 2026-03-27 | Documented **administrator vs ZTNA (GSA)** design trade-off: Executive Summary, new Section 3 subsection, Conditional Access nuance, Exec table row, Tier 2 / OSI L5 / Section 4.3 clarifications; Open Question **Q-S09**; diagram labels in Appendix A and sase-networking-flowchart.html |
 | 1.6 | 2026-03-27 | Section 7 cost material: **one-time vs recurring vs operational** framing; **Approaches A/B/C** with explicit trade-offs; separate illustrative tables; **when each approach tends to win** on TCO; removed implied single “winner” on annual totals |
-| 1.7 | 2026-03-27 | **Reader fatigue reduction:** Sections **1.1**, **3–7** are stubs in the main body; full content moved to **Appendices C–H** with back-links. Section **7** retains a **coverage-at-a-glance** summary table. **Appendix A** intro references STEP detail in Appendix F. |
+| 1.7 | 2026-03-27 | **Reader fatigue reduction:** Sections **1.1**, **3 through 7** are stubs in the main body; full content moved to **Appendices C through H** with back-links. Section **7** retains a **coverage-at-a-glance** summary table. **Appendix A** intro references STEP detail in Appendix F. |
+| 1.8 | 2026-03-27 | **Flowchart pairing guide** in **How to use**; plainer voice in Executive Summary; removed em/en dash punctuation across the doc; fixed cost-table headers after cleanup; small stub table fixes in Section 7. |
+| 1.9 | 2026-03-27 | **Appendices F through H** rewritten for readability: shorter sentences, less “spec catalog” tone in STEP and SCN narratives, clearer **Appendix H** intro and cost sanity checks, softened Microsoft **SSE** summary wording; doc status v1.9. |
+| 1.10 | 2026-04-03 | **Section 1** adds **Before you read this section** (product context, hub vs SASE edge framing, pointers to **Appendix C** and flowchart); foundational principles, structural change, and what does not change paragraphs unchanged. |
+| 1.11 | 2026-04-03 | **Section 4** expanded: eight-tier context, flowchart **Tier** / **Walkthrough** steps, minimal **T3/T4** Mermaid subset, **How to read** table; stable anchors for **Appendix E** §4.1 to §4.3; doc status v1.11. |
+| 1.12 | 2026-04-03 | **Sections 5 and 6** index tables add a **Description** column before **Detail** (one-line context per **STEP** / **SCN**); doc status v1.12. |
 
 ---
 
 ## Appendix A - Architecture Diagram (Mermaid Source)
 
-The Mermaid source below generates the SASE eight-tier architecture diagram. Each tier corresponds to a `STEP-###` in [Section 5](#5-architecture-walkthrough).
+The Mermaid source below generates the SASE eight-tier architecture diagram. Each tier lines up with a `STEP-###` in [Appendix F](#appendix-f---architecture-walkthrough-step-detail); [Section 5](#5-architecture-walkthrough) is the short index.
 
 ### How to view or export this diagram
 
@@ -579,7 +633,7 @@ The three personas remain identical in terms of identity, trust level, and compl
 | Persona | Identity (unchanged) | Azure-native connectivity | SASE connectivity | Key difference |
 |---|---|---|---|---|
 | **B2C Visitor** | Entra External ID - social login | Front Door → Hub Firewall → B2C Spoke | Front Door → App Gateway directly | Hub Firewall hop removed from B2C path |
-| **Park Administrator** | Entra ID + Conditional Access + MFA | Corporate LAN → ExpressRoute → VWAN → Hub Firewall → Spoke | Corporate LAN → SD-WAN → SASE PoP → FWaaS → Private Access Connector → Spoke | No dedicated circuit; SASE PoP is the chokepoint; **baseline** no GSA on device—optional hardening below |
+| **Park Administrator** | Entra ID + Conditional Access + MFA | Corporate LAN → ExpressRoute → VWAN → Hub Firewall → Spoke | Corporate LAN → SD-WAN → SASE PoP → FWaaS → Private Access Connector → Spoke | No dedicated circuit; SASE PoP is the chokepoint; **baseline** no GSA on device; optional hardening below |
 | **Park Ranger** | Entra ID + Conditional Access + MFA + risk-based | Field device → P2S VPN client → VWAN → Hub Firewall → Spoke | Field device → GSA ZTNA agent → SASE PoP → FWaaS → Private Access Connector → Spoke | App-level access replaces network tunnel; per-app policy enforced at PoP |
 
 ### ZTNA vs VPN - What changes for Rangers
@@ -601,7 +655,7 @@ The shift from P2S VPN to ZTNA is the most operationally significant persona cha
 
 ZTNA (Entra Private Access via **GSA** on the device) enforces **application-level** reachability: the user does not receive a full routed corporate path into Azure; only **published applications** are proxied through the PoP. **Park Rangers** use that model in the baseline design because they lack a **fixed SD-WAN-attached site** and would otherwise depend on **P2S VPN** with broader network semantics.
 
-**Park Administrators** in the baseline design are modeled on **corporate offices** with an **SD-WAN appliance** that steers traffic to the **nearest SASE PoP**. After PoP inspection (**FWaaS**, **SWG**, **CASB** as applicable), traffic to GlobalParks private apps still uses the **Private Access Connector** and **published app** definitions—the **connector** is the VNet-side enforcement anchor for both personas. The **trade-off** is on the **endpoint**:
+**Park Administrators** in the baseline design are modeled on **corporate offices** with an **SD-WAN appliance** that steers traffic to the **nearest SASE PoP**. After PoP inspection (**FWaaS**, **SWG**, **CASB** as applicable), traffic to GlobalParks private apps still uses the **Private Access Connector** and **published app** definitions. The **connector** is the VNet-side enforcement anchor for both personas. The **trade-off** is on the **endpoint**:
 
 - **Baseline (as drawn):** No **GSA** requirement on every admin PC. Trust is layered as **Entra ID + Conditional Access + SD-WAN site path + PoP controls + connector + NSG/ASG** inside Azure. Corporate **LAN** exposure (lateral movement, compromised workstations, flat networks) is **not** reduced to the same degree as on a ranger laptop that only has **ZTNA-published** paths from the device.
 - **Stronger alignment with Zero Trust:** Deploy **GSA / Entra Private Access on administrator devices** (especially **privileged** roles, **remote** admins without SD-WAN, or **high-value** app tiers) so **both** personas get **explicit per-app sessions** from the workstation. Alternatively or additionally: **micro-segmentation** on the corporate LAN, **Privileged Access Workstations (PAW)**, **JIT/JEA**, and **strict** CA policies for admin sign-in.
@@ -610,7 +664,7 @@ This document **does not** mandate one choice for all enterprises; it documents 
 
 ### Conditional Access - unchanged
 
-Conditional Access policies for administrators and rangers remain **aligned** with those in `DESIGN.md` Section 3. The SASE identity plane is Entra ID—SASE is identity-centric. For **rangers**, a **GSA-mediated ZTNA session** is gated by Conditional Access before the PoP grants access to private apps. For **administrators on the baseline SD-WAN path**, the user still signs in under the same CA policies; traffic from the **SD-WAN-attached site** is forwarded through the PoP to **published applications** via the connector without requiring a **GSA client** on the device unless the organization adopts the **optional hardening** above. Risk-based policy (High risk = hard block; Medium risk = step-up MFA) applies identically at identity evaluation time.
+Conditional Access policies for administrators and rangers remain **aligned** with those in `DESIGN.md` Section 3. The SASE identity plane is Entra ID. SASE is identity-centric. For **rangers**, a **GSA-mediated ZTNA session** is gated by Conditional Access before the PoP grants access to private apps. For **administrators on the baseline SD-WAN path**, the user still signs in under the same CA policies; traffic from the **SD-WAN-attached site** is forwarded through the PoP to **published applications** via the connector without requiring a **GSA client** on the device unless the organization adopts the **optional hardening** above. Risk-based policy (High risk = hard block; Medium risk = step-up MFA) applies identically at identity evaluation time.
 
 ---
 
@@ -619,6 +673,8 @@ Conditional Access policies for administrators and rangers remain **aligned** wi
 ← [Back to Section 4](#4-security-architecture-overview)
 
 <a id="appendix-e---security-architecture-overview-full-detail"></a>
+
+<a id="appendix-e-41-n-tier-architecture-diagram"></a>
 
 ### 4.1 N-Tier Architecture Diagram
 
@@ -645,6 +701,8 @@ The SASE architecture retains eight tiers but the **content and components of Ti
 
 ---
 
+<a id="appendix-e-42-osi-layer-control-mapping"></a>
+
 ### 4.2 OSI Layer Control Mapping
 
 The OSI mapping is largely preserved. The key shift is **who enforces each layer control** - in some cases the enforcement point moves from an Azure VNet resource to a SASE PoP cloud resource.
@@ -653,13 +711,15 @@ The OSI mapping is largely preserved. The key shift is **who enforces each layer
 |---|---|---|---|
 | **L7 - Application** | WAF (Front Door + App Gateway), Azure Firewall IDPS, Sentinel | WAF (Front Door + App Gateway), **FWaaS IDPS at SASE PoP**, Sentinel + SASE vendor logs | IDPS moves from Azure Firewall to SASE FWaaS for admin/ranger path |
 | **L6 - Presentation** | TLS termination at Hub Firewall (IDPS inspection), App Gateway | TLS termination at **SASE PoP** (admin/ranger), App Gateway (B2C) | SASE PoP performs TLS inspection before traffic enters Azure |
-| **L5 - Session** | Entra ID + Conditional Access, VPN session (IKEv2) | Entra ID + Conditional Access, **ZTNA proxy session to published apps** (TLS proxy, no IKE) for traffic through the PoP; **rangers:** user agent (GSA) establishes client ZTNA session; **admins (baseline):** SD-WAN site path to PoP without mandatory GSA—optional GSA for same session model ([Appendix D](#appendix-d---user-personas-full-detail)) | VPN session replaced for privileged paths; identity plane identical; admin endpoint model is a **documented trade-off** |
+| **L5 - Session** | Entra ID + Conditional Access, VPN session (IKEv2) | Entra ID + Conditional Access, **ZTNA proxy session to published apps** (TLS proxy, no IKE) for traffic through the PoP; **rangers:** user agent (GSA) establishes client ZTNA session; **admins (baseline):** SD-WAN site path to PoP without mandatory GSA, or optional GSA for same session model ([Appendix D](#appendix-d---user-personas-full-detail)) | VPN session replaced for privileged paths; identity plane identical; admin endpoint model is a **documented trade-off** |
 | **L4 - Transport** | NSG, Azure Firewall network rules, App Gateway | NSG, **SASE PoP port/protocol policy**, App Gateway | Azure Firewall L4 rules replaced by SASE PoP policy |
 | **L3 - Network** | VWAN routing, UDRs, DDoS, Private Endpoints, Azure Firewall threat intelligence | **SASE PoP routing** (IP threat intelligence), DDoS (B2C unchanged), Private Endpoints | VWAN + UDR routing replaced by SASE PoP routing fabric |
 | **L2 - Data Link** | ExpressRoute dedicated VLANs, Azure VNet abstraction | **SD-WAN underlay** (any broadband/MPLS), Azure VNet abstraction | L2 underlay changes from dedicated circuit to SD-WAN overlay |
 | **L1 - Physical** | Azure datacentre physical security, ExpressRoute dedicated fibre | Azure datacentre physical security (unchanged), **SD-WAN on shared underlay** | Physical isolation reduced - SD-WAN uses shared internet underlay for branch |
 
 ---
+
+<a id="appendix-e-43-detection-and-prevention-by-tier"></a>
 
 ### 4.3 Security Detection and Prevention by Tier
 
@@ -669,7 +729,7 @@ The SASE architecture adds a new telemetry source (SASE vendor logs) to the dete
 |---|---|---|---|---|---|
 | T0 - External Users | STEP-010 | Entra ID Protection | Risky sign-in events, leaked credentials | - | **Unchanged** |
 | T2 - Identity + ZTNA | STEP-020 | Entra Conditional Access | Risk signal aggregation | Hard block (High), step-up MFA (Medium), device compliance gate | **Unchanged** |
-| T2 - Identity + ZTNA | STEP-020 | Entra Private Access (ZTNA) + connector | Access to unpublished apps blocked by default at connector/PoP | Only **published** GlobalParks apps are reachable through the PoP path; **rangers** use GSA for client-side ZTNA session; **admins (baseline)** rely on SD-WAN to PoP without mandatory GSA—see [Appendix D](#appendix-d---user-personas-full-detail) for optional GSA / LAN controls | **New** - replaces VPN route table; admin **client** ZTNA is optional |
+| T2 - Identity + ZTNA | STEP-020 | Entra Private Access (ZTNA) + connector | Access to unpublished apps blocked by default at connector/PoP | Only **published** GlobalParks apps are reachable through the PoP path; **rangers** use GSA for client-side ZTNA session; **admins (baseline)** rely on SD-WAN to PoP without mandatory GSA. See [Appendix D](#appendix-d---user-personas-full-detail) for optional GSA / LAN controls | **New** - replaces VPN route table; admin **client** ZTNA is optional |
 | T3 - SASE PoP | STEP-040/041 | FWaaS at SASE PoP | IDPS alerts, threat intelligence events, TLS inspection hits | Inline IDPS block, malicious IP/domain block, TLS re-encrypt | **New** - replaces Azure Firewall Premium |
 | T3 - SASE PoP | STEP-040/041 | SWG (Entra Internet Access) | Malicious URL access, policy violations, shadow IT | Block non-permitted internet destinations for admin/ranger | **New** - replaces Azure Firewall internet rules |
 | T3 - SASE PoP | STEP-040/041 | CASB (Defender for Cloud Apps) | Shadow IT, SaaS policy violation, unusual data export | Block unauthorised SaaS apps, enforce session controls | **New** - replaces partial coverage from Sentinel alerts |
@@ -700,15 +760,17 @@ The SASE architecture adds a new telemetry source (SASE vendor logs) to the dete
 
 <a id="appendix-f---architecture-walkthrough-step-detail"></a>
 
-This section follows the same step order as `DESIGN.md` Section 5. Each step includes a comparison table at the end showing the delta from the Azure-native design. Click any `SCN-###` in a step table to jump to the full scenario write-up in [Appendix G](#appendix-g---scenario-traces-full-detail).
+Walk through these steps in order; it is the same sequence as `DESIGN.md` Section 5. At the end of each step you get a small table: what moved, what stayed, and what SASE adds or removes versus the Azure-native design.
+
+If **[sase-networking-flowchart.html](sase-networking-flowchart.html)** is open, set the **Step** filter to the same **STEP-###** ID. Scenario links such as **SCN-002** point to [Appendix G](#appendix-g---scenario-traces-full-detail), where the same flow is written out as a numbered path.
 
 ---
 
 ### STEP-010 - Users and Personas
 
-The three personas are unchanged. The architectural branching point is the same: B2C visitor, park administrator, and park ranger take completely separate identity and connectivity paths.
+You still have three personas: visitor, admin, ranger. They still split cleanly on identity and how they reach the platform.
 
-**What changes at STEP-010:** The device-side software changes for administrators and rangers. The Azure VPN client is replaced by the **Global Secure Access (GSA) agent**, which simultaneously handles ZTNA (private app access) and SWG (internet access) through a single client. Administrators in a corporate office with SD-WAN appliances may not need the GSA agent on individual devices - the SD-WAN appliance routes office traffic to the SASE PoP transparently.
+**What changes here:** On the device, rangers move from the Azure VPN client to the **GSA** agent, which covers both private apps (**ZTNA**) and internet policy (**SWG**) in one install. Many corporate admins never need **GSA** on the laptop if the site **SD-WAN** appliance already sends their traffic to the **SASE PoP**.
 
 | | Detail |
 |---|---|
@@ -721,15 +783,15 @@ The three personas are unchanged. The architectural branching point is the same:
 
 ### STEP-020 - Identity and Access
 
-Identity is **the control plane of SASE**. Entra ID Conditional Access is even more central in a SASE architecture than in the Azure-native design because ZTNA access decisions are gated entirely on identity and device compliance signals - there is no network-level fallback.
+Identity stays the brain of the design. With SASE, **Conditional Access** matters even more, because **ZTNA** does not give you a “fall back to the network path” story: the user either passes policy or the **PoP** never forwards the session.
 
-All Conditional Access policies from `DESIGN.md` Section 3 apply without modification:
-- Administrators: device compliance, MFA, Named Location (corporate IP), 8-hour session
-- Rangers: device compliance, MFA, risk-based policy (High = hard block, Medium = step-up MFA), 4-hour session
+`DESIGN.md` Section 3 policies still apply as written:
+- **Admins:** device compliance, MFA, Named Location (corporate IP), 8-hour session
+- **Rangers:** device compliance, MFA, risk-based policy (High = hard block, Medium = step-up MFA), 4-hour session
 
-**What is new in SASE:** **Entra Private Access (ZTNA)** is added as the app-level access enforcement mechanism. It integrates with Conditional Access as a resource in the policy - a Conditional Access policy can require that a ZTNA session is established from a compliant device before any private app is published to the user. ZTNA is not a replacement for Conditional Access; it is enforced by Conditional Access.
+**What SASE adds:** **Entra Private Access** as the app-level gate. You can require a healthy **ZTNA** session from a compliant device before a private app is even offered. That sits under Conditional Access; it does not replace it.
 
-The risk-based Conditional Access policy described in `DESIGN.md` Section 5 (STEP-020) is unchanged. The only difference is that instead of triggering a P2S VPN block at the Hub Firewall, a High-risk event now blocks the ZTNA session at the SASE PoP - before any Private Access Connector is contacted.
+**Risk handling:** The same risk-based policy as in `DESIGN.md` STEP-020 still applies. The only shift is mechanical: a high-risk user gets blocked at the **SASE PoP** instead of at the hub firewall after a **P2S** tunnel is up.
 
 | | Detail |
 |---|---|
@@ -741,9 +803,9 @@ The risk-based Conditional Access policy described in `DESIGN.md` Section 5 (STE
 
 ### STEP-040 - Connectivity - Park Administrators (SD-WAN to SASE PoP)
 
-Park administrators connect from corporate offices. In the Azure-native design, this requires a dedicated ExpressRoute circuit (4-8 week lead time) and Azure Virtual WAN. In the SASE design, the corporate office has an **SD-WAN appliance** that connects over any broadband or MPLS underlay to the nearest **SASE PoP**.
+Admins still work from corporate offices. Azure-native leaned on **ExpressRoute** (think weeks of lead time) and **VWAN**. Here, the office has an **SD-WAN** box that rides whatever underlay you already have (broadband, MPLS, LTE backup) into the closest **SASE PoP**.
 
-**SD-WAN operation:** The SD-WAN appliance continuously monitors path quality across available underlinks (corporate broadband, MPLS, 4G backup). It steers GlobalParks management traffic to the best-performing path dynamically. At the SASE PoP, the corporate office traffic is terminated, inspected by **FWaaS** (IDPS, TLS inspection, threat intelligence), and then proxied through the nearest **Private Access Connector** to the internal App Gateway in the Admin/Ranger Spoke VNet.
+**How it behaves:** The appliance watches link quality and shifts management traffic to the better path. At the **PoP**, **FWaaS** does **IDPS**, TLS work, and threat feeds, then traffic rides a **Private Access Connector** to the internal **App Gateway** in the admin/ranger spoke.
 
 **Why SD-WAN over ExpressRoute for branches:**
 
@@ -758,7 +820,7 @@ Park administrators connect from corporate offices. In the Azure-native design, 
 | Resilience | Active-Active with redundant ER circuits | SD-WAN automatic failover across underlinks | Both resilient by design |
 | Scalability | Fixed circuit capacity | Elastic - aggregate multiple broadband links | SD-WAN scales more flexibly |
 
-**Trade-off accepted (ADR-S003):** SD-WAN provides adequate security and sufficient performance for GlobalParks management traffic. The specific park management workloads (configuration updates, reporting, booking management) are not ultra-low-latency sensitive. If sub-10ms latency is required for specific workloads, a private underlay can be added to the SD-WAN fabric without changing the architecture.
+**Trade-off (ADR-S003):** For day-to-day admin work (config changes, reports, bookings), this path is good enough. If something truly needs sub-10ms, you can still bolt a private underlay onto **SD-WAN** without throwing away the model.
 
 | | Detail |
 |---|---|
@@ -770,22 +832,13 @@ Park administrators connect from corporate offices. In the Azure-native design, 
 
 ### STEP-041 - Connectivity - Park Rangers (ZTNA via Entra Private Access)
 
-Park rangers connect from field locations via the **Global Secure Access (GSA) agent** installed on their Intune-managed field devices. The agent establishes a TLS session to the nearest SASE PoP (not a routed VPN tunnel). The PoP evaluates the Conditional Access policy in real time: device compliance, sign-in risk score, MFA completion. If all conditions pass, the SASE PoP proxies the ranger's HTTP/S requests through the **Private Access Connector** to the specific published apps in the Admin/Ranger Spoke VNet.
+Rangers run **GSA** on Intune-managed laptops or tablets. The agent opens **TLS** to the nearest **PoP**; it is not a classic routed **VPN** tunnel. The **PoP** checks **Conditional Access** (device health, risk, MFA). If the bar is met, **HTTP/S** to published apps goes through the **Private Access Connector** into the admin/ranger spoke.
 
-**Critically, the ranger never receives a network route into the VNet.** The GSA agent does not install a network-layer tunnel. The ranger can only reach the specific apps that have been published in Entra Private Access. An attacker who compromises a ranger credential cannot use it to reach Hub management interfaces, the B2C spoke, or any resource not explicitly published - because no network path exists from the ranger's device to those resources.
+**Why this feels different from P2S:** The ranger does not get a **VNet** route table entry. They only see apps you published in **Entra Private Access**. A stolen password still cannot wander the network, because that network was never exposed to the device.
 
-**ZTNA vs P2S VPN - the security advantage:**
+**Compared with Azure-native P2S:** With **P2S**, the device had a private IP inside the **VNet**. Firewall rules limited where it could go, but misconfiguration or chained bugs could still widen blast radius. **ZTNA** shrinks the world to named apps off the device.
 
-In the P2S VPN model (Azure-native), a ranger's VPN session gives the device a private IP in the VNet. Even with Firewall rules restricting destination, lateral movement risk exists if the Firewall policy has any overly permissive rule or if a second vulnerability is chained. ZTNA eliminates the network route entirely - there is no network to move laterally within from the ranger's perspective.
-
-**Remote Browser Isolation (RBI) - partner capability for rangers:** When a ranger opens an external website (public-facing content) through the SWG at the SASE PoP, RBI can be triggered by policy to execute that page inside a cloud browser container rather than on the ranger's device. Only a rendered pixel stream is delivered to the ranger's device - malware, drive-by download scripts, and phishing kits cannot reach the endpoint.
-
-This is particularly valuable for GlobalParks rangers because:
-- Rangers access external vendor portals, government agency sites, and park supplier systems from Intune-managed field devices that are also connected to internal park management apps via ZTNA.
-- A browser-borne compromise on a ranger device that has an active ZTNA session is a higher-risk event than on an isolated workstation.
-- PCI-DSS scope may require that any device with access to payment-system applications also has malware protection on its browsing activity - RBI is the strongest available control.
-
-**Microsoft SSE gap:** Entra Internet Access (SWG) does not include native RBI today. RBI requires a third-party vendor (Zscaler Cloud Browser Isolation, Palo Alto Prisma Browser Isolation, Menlo Security) integrated with the SASE PoP, or Microsoft Edge for Business session controls as a partial compensating control. This is captured in [Appendix H](#appendix-h---requirements-traceability-full-detail) (summary in [Section 7](#7-requirements-traceability-matrix)) and [Q-S08](#9-open-questions).
+**RBI (optional, partner):** For untrusted web, policy can force rendering in a cloud browser so the endpoint only sees pixels. That matters when the same device also has **ZTNA** into payment-adjacent apps. **Microsoft SSE** does not include **RBI** natively; you pair a vendor (Zscaler, Prisma, Menlo, and so on) or lean on **Edge for Business** controls as a lighter option. See [Appendix H](#appendix-h---requirements-traceability-full-detail), the short **Section 7** stub, and [Q-S08](#9-open-questions).
 
 | | Detail |
 |---|---|
@@ -797,11 +850,11 @@ This is particularly valuable for GlobalParks rangers because:
 
 ### STEP-030 - Internet Edge and Global Routing
 
-**B2C visitor path - unchanged.** Azure Front Door Premium, Azure WAF (OWASP DRS + custom rules), and Azure DDoS Protection Standard operate identically to the Azure-native design. B2C visitors are anonymous internet users - SASE does not apply to them, as SASE is identity-centric and B2C visitors are not corporate identities with SASE agents.
+**B2C path:** Same idea as Azure-native: **Front Door**, **WAF**, **DDoS**. Visitors are anonymous; they do not run a SASE client, so nothing in the SASE fabric applies to their path.
 
-**One architectural change for B2C:** In the Azure-native design, Front Door routes to the Hub Firewall's public IP, which then forwards to the App Gateway. In the SASE design, Front Door connects directly to the App Gateway using **Azure Private Link Origin** (a Front Door Premium feature). The App Gateway no longer needs a public IP. This is arguably more secure than the original (the App Gateway's public-IP exposure is eliminated), though it also removes the IDPS layer that the Hub Firewall provided on the B2C path. This trade-off is documented in [ADR-S004](#adr-s004---hub-vnet-elimination-and-b2c-idps-trade-off).
+**What shifts for B2C:** **Front Door** now lands on **App Gateway** through **Private Link Origin**, not via a hub firewall public IP. You drop **App Gateway** public IP exposure, but you also lose hub **IDPS** on that hop. Full rationale is in [ADR-S004](#adr-s004---hub-vnet-elimination-and-b2c-idps-trade-off).
 
-**Admin and Ranger internet traffic (new in SASE):** When administrators and rangers browse the internet from their corporate/field devices, that traffic is now routed through the **SWG (Secure Web Gateway)** at the SASE PoP via the GSA agent. This provides URL filtering, TLS inspection, malware scanning, and acceptable-use policy enforcement - controls that in the Azure-native design required Azure Firewall FQDN rules or an explicit internet breakout configuration.
+**Admin and ranger internet:** Their web browsing goes out through the **SWG** at the **PoP** (**GSA** on the endpoint). That replaces the old pattern of leaning on **Azure Firewall** FQDN rules or a bespoke breakout for privileged users.
 
 | | Detail |
 |---|---|
@@ -813,20 +866,19 @@ This is particularly valuable for GlobalParks rangers because:
 
 ### STEP-050 - SASE PoP and Private Access Connector (replaces Hub VNet)
 
-This step represents the most fundamental change in the SASE architecture. In the Azure-native design, STEP-050 describes 12 Hub VNets each hosting 2 Azure Firewall Premium instances - the mandatory choke point for all traffic. In the SASE design, this choke point moves outside Azure.
+This is the big swap. Azure-native STEP-050 was twelve hub VNets with paired **Azure Firewall Premium** boxes acting as the choke point. In SASE, that choke point lives in the vendor **PoP** fabric instead of your **VNet**.
 
-**SASE PoP as the convergence point:** All admin and ranger sessions converge at the nearest SASE PoP. FWaaS at the PoP applies:
-- **IDPS** - Same signature-based threat detection as Azure Firewall Premium IDPS, run at the SASE vendor's cloud edge
-- **TLS Inspection** - Decrypt, inspect, re-encrypt HTTPS sessions before they reach Azure
-- **Threat Intelligence** - Block known-malicious IPs, domains, and C2 infrastructure
-- **App-level access policy** - Only published Entra Private Access apps are reachable; all other destinations denied by default
+**At the PoP**, **FWaaS** typically covers:
+- **IDPS** (signature-style inspection similar to **Azure Firewall Premium IDPS**, but run at the edge)
+- **TLS** inspection (decrypt, inspect, re-encrypt before Azure)
+- **Threat intelligence** feeds on IPs, domains, and known **C2**
+- **App policy** so only **Entra Private Access** published apps get through by default
 
-**Private Access Connector:** A lightweight VM or container is deployed in each App VNet (Admin/Ranger Spoke). It maintains a persistent outbound HTTPS connection to the SASE PoP - no inbound ports, no public IP, no firewall rules needed. When an authenticated, inspected ranger session arrives at the SASE PoP, the PoP proxies the request through the connector to the Internal App Gateway inside the VNet.
+**Inside each admin/ranger app VNet**, the **Private Access Connector** is a small footprint VM/CaaS that keeps an outbound **HTTPS** channel to the **PoP**. No inbound listener, no public IP. When a session checks out, the **PoP** pushes the allowed request across that channel to **Internal App Gateway**.
 
-**How to read PoP / connector arrows in the flowchart:** The connector **initiates** outbound TLS to the PoP (dashed line **from connector toward PoP** in `sase-networking-flowchart.html` and Appendix A). **Proxied application traffic** for an allowed session travels **from PoP to connector** (solid line), then connector to Internal App Gateway. That is not contradictory: the tunnel is opened from inside Azure outward; app requests are then delivered over that channel from the PoP. The B2C path does not use the connector; the visitor browser reaches Front Door over the public internet (arrows follow visitor sign-in then edge tiers only).
+**Reading the diagram:** Dashed lines are “connector opened the tunnel out.” Solid lines are “allowed app traffic rides back in.” That is normal for brokered access. **B2C** still goes visitor to **Front Door**; it never uses the connector.
 
-**What is lost compared to Hub Firewall:**
-- The Hub Firewall was simultaneously the Tier 4 enforcement point for admin/ranger traffic AND the public IP entry for B2C. In SASE, B2C no longer goes through any Azure-side firewall at the VNet layer (only Front Door WAF + App Gateway WAF). IDPS on the B2C path is sacrificed. This is the principal security trade-off (see ADR-S004).
+**What you give up versus the old hub:** The hub firewall used to sit in front of **B2C** and privileged paths alike. Now **B2C** only sees **Front Door** + **App Gateway** **WAF** at the Azure edge. No **IDPS** on that visitor path is the headline trade-off (see ADR-S004).
 
 | | Detail |
 |---|---|
@@ -838,11 +890,11 @@ This step represents the most fundamental change in the SASE architecture. In th
 
 ### STEP-060A - B2C App VNet - Public Web Tier
 
-The B2C App VNet (formerly B2C Public Spoke VNet) is largely unchanged in its internal structure. The App Gateway WAF v2 still provides L7 load balancing, TLS termination, and a second OWASP inspection layer. NSGs enforce that only App Gateway source IPs can reach B2C app servers.
+Inside the **B2C** spoke, the layout barely moves: **App Gateway** + **WAF v2**, **TLS** termination, **NSG** only letting the gateway talk to web tier subnets.
 
-**What changes:** The source of traffic entering the App Gateway changes. In the Azure-native design, the App Gateway received traffic from the Hub Firewall's private IP. In SASE, the App Gateway receives traffic directly from Front Door via Azure Private Link (no Hub Firewall intermediary). The NSG on the web subnet is updated to allow the **Azure Front Door service tag** instead of the Hub Firewall's private IP range.
+**What changes upstream:** Traffic used to hit **App Gateway** from the hub firewall private IP. Now it arrives straight from **Front Door** over **Private Link**. The web subnet **NSG** therefore allows the **Front Door** service tag instead of the old firewall range.
 
-**Heightened importance of App Gateway WAF v2:** With no Hub Firewall above the App Gateway on the B2C path, the App Gateway WAF v2 becomes the only Azure-side L7 inspection layer for B2C traffic (Front Door WAF is the first layer). This means WAF policy tuning and rule coverage become more critical than in the Azure-native design.
+**Why WAF tuning matters more:** Without a hub **IDPS** hop, **Front Door WAF** plus **App Gateway WAF** are your Azure-side **L7** story for visitors. Spend time on rules and tests here.
 
 | | Detail |
 |---|---|
@@ -854,11 +906,11 @@ The B2C App VNet (formerly B2C Public Spoke VNet) is largely unchanged in its in
 
 ### STEP-060B - Admin/Ranger App VNet - Internal App Tier
 
-The Internal App Gateway with WAF v2 remains unchanged in function. The difference is the source of inbound traffic. In the Azure-native design, the Hub Firewall forwarded to the Internal App Gateway. In SASE, the **Private Access Connector** (PACONN) is the source - SASE PoP proxies sessions through the connector to the Internal App Gateway.
+**Internal App Gateway** + **WAF v2** still terminate and inspect app traffic. Only the trusted source changes: **PACONN** after the **PoP** brokered the session, instead of hub firewall private IPs.
 
-The NSG on the Internal App Gateway subnet is updated to allow the PACONN subnet as the source (instead of the Hub Firewall private IP). The NSG on the app server subnet continues to allow only the Internal App Gateway source IP. The App servers are tagged with ASG `asg-admin-app` for data tier NSG gating - unchanged.
+**NSGs:** The gateway subnet allows **PACONN**; app subnets still allow only the gateway. **ASG** `asg-admin-app` for the data tier is unchanged.
 
-The security rationale for the Internal App Gateway (WAF v2 catching application-layer attacks from compromised but authenticated admin devices) remains fully valid in the SASE design. SASE FWaaS at the PoP provides the IDPS layer; the Internal App Gateway WAF provides the application-specific HTTP-layer inspection layer. Two independent inspection layers are preserved on the admin/ranger path.
+You still get two meaningful passes: **FWaaS** / **IDPS**-style control at the **PoP**, then app-specific **WAF** at the gateway for clients that passed identity but might still be risky.
 
 | | Detail |
 |---|---|
@@ -870,9 +922,9 @@ The security rationale for the Internal App Gateway (WAF v2 catching application
 
 ### STEP-070 - Regional Data Tier
 
-**Unchanged.** The Data Tier is fully independent of the connectivity and inspection topology changes. Private Endpoints, Azure SQL, Cosmos DB, NSGs gated to ASGs, and the centralised DNS model are identical to `DESIGN.md` STEP-070. Cosmos DB multi-region write, Azure SQL Active Geo-Replication, RTO 5 min / RPO 15 min targets - all unchanged.
+**No change.** **Private Endpoints**, **SQL**, **Cosmos DB**, **ASG**-aware **NSGs**, and DNS stay as in `DESIGN.md` STEP-070, including multi-region writes, geo replication, and the **RTO** / **RPO** targets.
 
-The SASE connectivity change does not affect how app servers (in T5A or T5B) reach the data tier. App servers have private IP routes to Private Endpoints within the same or peered VNet. This is an intra-VNet path - SASE PoPs are not in this path.
+App VMs still reach data over private paths inside or peered **VNets**. **SASE** is not in that east-west hop.
 
 | | Detail |
 |---|---|
@@ -882,21 +934,13 @@ The SASE connectivity change does not affect how app servers (in T5A or T5B) rea
 
 ### STEP-080 - Security Operations and Governance
 
-The SecOps architecture is enhanced rather than replaced. All components from `DESIGN.md` STEP-080 remain: Azure Monitor, Defender for Cloud, Microsoft Sentinel, Azure Policy, GitOps. The key additions are:
+Everything from `DESIGN.md` STEP-080 still applies: **Azure Monitor**, **Defender for Cloud**, **Sentinel**, **Azure Policy**, **GitOps**. SASE adds more signals and a few new playbooks.
 
-**SASE vendor telemetry as a new signal source:** The SASE platform streams FWaaS IDPS events, SWG violation logs, and CASB alerts to a SIEM connector (native Microsoft Sentinel connector for Microsoft SSE; API-based for third-party SASE vendors). These events join the existing Azure Monitor workspace as an additional telemetry source. Sentinel can now correlate:
-- A SASE PoP IDPS alert (threat signature matched on admin session) with
-- An Entra ID high-risk sign-in event, followed by
-- An anomalous bulk query detected by Defender for SQL - across all from the same user identity
+**New telemetry:** **FWaaS**, **SWG**, and **CASB** logs land in **Sentinel** (native connector for **Microsoft SSE**, APIs for other stacks). That lets you chain stories you could not build off Azure firewall logs alone, for example **IDPS** hits at the **PoP**, risky **Entra** sign-ins, and odd **SQL** queries from **Defender for SQL**, all tied to one user.
 
-This cross-tier, cross-platform correlation was not possible in the Azure-native design where SASE signals did not exist.
+**Policy as code:** Treat vendor policy like infra: **GitOps**, reviews, **Terraform** or HTTP APIs for rule pushes, alongside your **Azure** repo work.
 
-**SASE policy as code (GitOps extension):** The GitOps pipeline extends to include SASE policy-as-code. SASE vendor platforms expose API-driven policy management. FWaaS rule changes (IDPS policies, URL categories, app access policies) are managed through the same PR-review workflow as Azure Firewall Policy changes, using the vendor's Terraform provider or API.
-
-**Logic App Playbooks - new SASE response actions:** In addition to the existing playbook actions (block IP at Azure Firewall, disable Entra ID account, isolate VM subnet), new playbooks are added:
-- Block a source IP at the SASE PoP (via SASE vendor API)
-- Revoke a ranger's ZTNA session (via Entra Private Access app access policy)
-- Quarantine a compromised SD-WAN branch (restrict branch to SASE remediation VLAN)
+**Playbooks:** Keep the old actions (block IP on **Azure Firewall**, disable account, isolate subnet) and add **PoP** blocks, **ZTNA** session revoke, or “quarantine this **SD-WAN** site to a remediation VLAN” when your runbooks call for it.
 
 | | Detail |
 |---|---|
@@ -906,13 +950,11 @@ This cross-tier, cross-platform correlation was not possible in the Azure-native
 
 ### STEP-090 - On-premises and Hybrid Systems
 
-**IoT sensors and Azure Arc - unchanged.** IoT Hub, Azure Stream Analytics, Cosmos DB ingestion, and Azure Arc on-premises governance are identical to `DESIGN.md` STEP-090.
+**IoT** and **Arc** are unchanged from `DESIGN.md` STEP-090.
 
-**Legacy park systems (changed):** In the Azure-native design, legacy park system offices connected via dedicated ExpressRoute circuits. In SASE, these offices use **SD-WAN branch nodes** that connect to the nearest SASE PoP. The same FWaaS inspection applies. Azure Data Factory pipelines run identically - only the underlay connectivity method changes.
+**Legacy offices:** Swap dedicated **ExpressRoute** tails for **SD-WAN** spokes into the **PoP**, still inspected by **FWaaS**. **Data Factory** and other batch patterns stay the same; only the WAN attachment changes.
 
-**Government agency integration (choice):** Government agencies can connect either:
-- Via **ZTNA Connector** (Entra Private Access) - the agency installs a lightweight connector in their network; GlobalParks publishes specific read-only API apps to the agency identity. This provides the tightest scope control.
-- Via **dedicated ExpressRoute** - retaining the original approach for agencies that cannot install software or have strict connectivity requirements (recommended for regulatory agencies with existing connectivity contracts).
+**Government partners:** Either give them a **Private Access** connector plus tightly scoped published APIs, or keep an **ExpressRoute** handoff if they cannot install anything on prem or contractually need private line.
 
 | | Detail |
 |---|---|
@@ -926,12 +968,14 @@ This cross-tier, cross-platform correlation was not possible in the Azure-native
 
 <a id="appendix-g---scenario-traces-full-detail"></a>
 
+These are scripted walks through the architecture. Skim the numbered steps, then read the short **Difference** or **Key difference** note if you only want the delta. Links at the bottom jump back to the matching **STEP** in [Appendix F](#appendix-f---architecture-walkthrough-step-detail). The HTML flowchart uses the same **SCN** IDs in filters and walkthrough copy.
+
 ---
 
 <a id="scn-001---public-visitor-accesses-the-globalparks-platform"></a>
 ### SCN-001 - Public Visitor Accesses the GlobalParks Platform
 
-Path is **identical to `DESIGN.md` SCN-001** with one difference: the Hub Firewall hop is removed.
+Same story as **`DESIGN.md` SCN-001**, minus the hub firewall hop on the visitor path.
 
 1. **STEP-010** - Identified as B2C persona.
 2. **STEP-020** - Google login via Entra External ID. Token issued.
@@ -954,7 +998,7 @@ Path is **identical to `DESIGN.md` SCN-001** with one difference: the Hub Firewa
 An administrator at corporate HQ needs to update park capacity limits. The corporate office has an SD-WAN appliance.
 
 1. **STEP-010** - Identified as privileged admin persona.
-2. **STEP-020** - Signs in via Entra ID. Conditional Access evaluates: device is Intune-compliant, sign-in risk is low, location matches corporate IP, MFA completed. **Baseline:** The admin laptop does **not** run the GSA ZTNA client; identity and policy are satisfied before traffic is forwarded from the corporate site. Published-app access to GlobalParks is still brokered through the **SASE PoP** and **Private Access Connector** (not a generic corporate network route into the VNet). **Trade-off:** Optional GSA on admins for the same endpoint model as rangers—see [Appendix D](#administrators-ztna-and-defense-in-depth-design-trade-off) and **Q-S09**.
+2. **STEP-020** - Signs in via Entra ID. Conditional Access evaluates: device is Intune-compliant, sign-in risk is low, location matches corporate IP, MFA completed. **Baseline:** The admin laptop does **not** run the GSA ZTNA client; identity and policy are satisfied before traffic is forwarded from the corporate site. Published-app access to GlobalParks is still brokered through the **SASE PoP** and **Private Access Connector** (not a generic corporate network route into the VNet). **Trade-off:** Optional GSA on admins for the same endpoint model as rangers. See [Appendix D](#administrators-ztna-and-defense-in-depth-design-trade-off) and **Q-S09**.
 3. **STEP-040** - Admin's HTTP/S traffic is routed by the SD-WAN appliance to the nearest SASE PoP over the best available underlink (broadband or MPLS).
 4. **STEP-050** - FWaaS at the SASE PoP decrypts and re-inspects the TLS session. IDPS runs against the payload. Threat intelligence checks the source IP. Session passes. SASE PoP proxies the request through the Private Access Connector in the Admin/Ranger App VNet.
 5. **STEP-060B** - Internal App Gateway (WAF v2) receives the request from the PACONN subnet. Second WAF inspection catches any HTTP-layer attack payload. URL routing directs to the admin API backend pool. NSG permits PACONN source only.
@@ -995,7 +1039,7 @@ A ranger at a remote visitor centre marks a trail as closed.
 <a id="scn-003---attacker-attempts-ddos-and-sqli-against-public-endpoints"></a>
 ### SCN-003 - Attacker Attempts DDoS and SQLi Against Public Endpoints
 
-Path **identical to `DESIGN.md` SCN-003** - B2C path is unchanged.
+Same as **`DESIGN.md` SCN-003**. **B2C** edge controls still do the heavy lifting.
 
 1. **STEP-030** - Volumetric flood absorbed by Front Door PoP. DDoS Protection Standard activates. WAF detects SQLi and blocks at the Front Door PoP.
 2. **STEP-080** - WAF block events stream to Sentinel. Playbook adds attacker IP to WAF block list.
@@ -1007,12 +1051,12 @@ Path **identical to `DESIGN.md` SCN-003** - B2C path is unchanged.
 <a id="scn-004---cross-region-traffic"></a>
 ### SCN-004 - Cross-Region Traffic (Admin from Americas to Europe Spoke)
 
-In the Azure-native design, cross-region admin traffic traversed the Hub Firewall (Americas) then the VWAN inter-hub path to the Europe Hub Firewall. In SASE, cross-region is handled by the SASE PoP network.
+Azure-native sent this traffic **Americas** hub firewall, then **VWAN** between regions, then **Europe** hub firewall. Here, the **PoP** mesh carries the session between regions.
 
-1. **STEP-050** - Admin session arrives at the Americas SASE PoP. If the target private app is in the Europe VNet, the SASE PoP fabric routes the session to the Europe SASE PoP (SASE vendors maintain low-latency inter-PoP networks). The Europe SASE PoP proxies through the Europe Private Access Connector.
-2. **STEP-080** - Cross-region SASE session visible in vendor telemetry and Sentinel.
+1. **STEP-050** - Session lands in an **Americas** **PoP**. If the published app lives in **Europe**, the vendor fabric hands off to a **Europe** **PoP**, which uses the local **Private Access Connector**.
+2. **STEP-080** - Vendor logs plus **Sentinel** show the cross-region hop.
 
-**Key difference:** No explicit site-to-site VWAN connection is needed between regions. The SASE PoP network handles inter-region routing automatically - this resolves the complexity of ADR-004 (12 separate VWANs needing explicit S2S connections per region pair).
+**Key difference:** You do not stand up explicit **VWAN** region-to-region plumbing. That is why the twelve-hub **ADR-004** problem goes away in this sketch.
 
 **Requirements exercised:** REQ-4.3
 
@@ -1021,9 +1065,9 @@ In the Azure-native design, cross-region admin traffic traversed the Hub Firewal
 <a id="scn-005---soc-investigates-a-multi-stage-attack"></a>
 ### SCN-005 - SOC Investigates a Multi-Stage Attack
 
-1. **STEP-080** - Sentinel AI Fusion correlates: an Entra ID anomalous sign-in (from a new country), a SASE PoP FWaaS IDPS alert (payload matched ransomware C2 signature on the same user session), and an unusual bulk query to Azure SQL from Defender for SQL - all within 10 minutes. The SASE telemetry source is the new signal that closes the correlation gap. Playbooks: disable Entra ID account, revoke ZTNA session at SASE PoP, block source IP at SASE FWaaS, create ITSM ticket.
+1. **STEP-080** - **Sentinel** fusion ties three signals inside ten minutes: a weird **Entra** sign-in (new country), a **PoP** **FWaaS** / **IDPS** hit on the same user session, and a fat **SQL** pull flagged by **Defender for SQL**. The **PoP** feed is the piece you did not have in pure Azure-native. Runbooks can disable the account, kill **ZTNA**, block the IP at the **PoP**, and open a ticket.
 
-**vs. Azure-native:** In the Azure-native design, the IDPS alert would have come from Azure Firewall logs. In SASE, it comes from SASE PoP FWaaS telemetry. The Sentinel correlation logic is the same; the signal source changes.
+**vs. Azure-native:** Same detective story, different **IDPS** log source (**Azure Firewall** before, **FWaaS** at the **PoP** now).
 
 [Back to STEP-080](#step-080---security-operations-and-governance)
 
@@ -1039,24 +1083,24 @@ In the Azure-native design, cross-region admin traffic traversed the Hub Firewal
 <a id="scn-007---legacy-park-system-syncs-to-azure-sql"></a>
 ### SCN-007 - Legacy Park System Syncs to Azure SQL (via SD-WAN)
 
-1. **STEP-090** - SD-WAN branch node at the legacy park office routes Data Factory pipeline traffic to the nearest SASE PoP. FWaaS inspects the session. Private Access Connector proxies to the data tier.
-2. **STEP-070** - Transformed records land in Azure SQL via Private Endpoint.
-3. **STEP-080** - Data Factory run logs in Azure Monitor; SASE PoP session logs in Sentinel.
+1. **STEP-090** - Branch **SD-WAN** steers **Data Factory** traffic to the nearest **PoP**. **FWaaS** inspects it; **Private Access Connector** reaches the data tier.
+2. **STEP-070** - Rows land in **SQL** over a **Private Endpoint**.
+3. **STEP-080** - **Pipeline** logs in **Monitor**; **PoP** session logs in **Sentinel**.
 
-**vs. Azure-native:** ExpressRoute circuit to VWAN → SD-WAN branch node to SASE PoP. Functionally equivalent; provisioning is faster and more flexible.
+**vs. Azure-native:** **ExpressRoute** into **VWAN** becomes **SD-WAN** into **PoP**. Behaviour for the batch job is the same; getting the link live is usually faster.
 
 ---
 
 <a id="scn-008---government-agency-accesses-park-data"></a>
 ### SCN-008 - Government Agency Accesses Park Data
 
-1. **STEP-090** - Agency connects via ZTNA connector deployed in their network. Entra ID B2B identity for the agency service account. Conditional Access policy enforces MFA and compliance.
-2. **STEP-050** - SASE PoP: FWaaS inspection + ZTNA policy restricts access to the read-only API app only. Private Access Connector proxies to Internal App Gateway.
-3. **STEP-060B** - Internal App Gateway WAF v2 inspects. URL routing: read-only API backend pool only.
-4. **STEP-070** - Read-only query to Azure SQL via Private Endpoint.
-5. **STEP-080** - Agency session logged in Sentinel.
+1. **STEP-090** - Agency hosts a **Private Access** connector; access rides **Entra** **B2B** for a service account with **Conditional Access** (MFA, posture).
+2. **STEP-050** - **FWaaS** plus **ZTNA** policy limit them to the read-only API slice. **Connector** hands off to **Internal App Gateway**.
+3. **STEP-060B** - **WAF** on the internal gateway, URL path pinned to the read pool.
+4. **STEP-070** - **SQL** read through a **Private Endpoint**.
+5. **STEP-080** - Session logged in **Sentinel**.
 
-**vs. Azure-native:** ExpressRoute peering into VWAN → ZTNA connector in agency network → SASE PoP. ZTNA connector is more agile and does not require dedicated circuits.
+**vs. Azure-native:** You might have used **ExpressRoute** peering into **VWAN**. **ZTNA** + connector avoids ordering a new line when the agency can install software.
 
 ---
 
@@ -1086,15 +1130,17 @@ Visitor → Entra External ID → Front Door Sydney PoP (WAF + DDoS) → **App G
 
 <a id="appendix-h---requirements-traceability-full-detail"></a>
 
+This appendix is dense on purpose: it is where auditors and integrators go line by line. If you are reading for the story only, stay in **[Section 7](#7-requirements-traceability-matrix)** and skim the cost section below at a high level.
+
 [Back to Section 5](#5-architecture-walkthrough)
 
 ### Legend
 
 | Symbol | Meaning |
 |---|---|
-| ✅ **Native** | Delivered by Microsoft products included in M365 E3/E5 or Azure - no additional SASE vendor needed |
-| ⚠️ **Partial** | Microsoft provides capability but with limitations noted - acceptable for many workloads, evaluated per risk appetite |
-| ❌ **Gap** | Microsoft SSE does not cover this natively - a third-party SASE partner (Zscaler, Palo Alto Prisma, Cloudflare) or a hybrid Azure component is required |
+| ✅ **Native** | Covered by Microsoft 365 or Azure SKUs you likely already license, without a separate SASE vendor |
+| ⚠️ **Partial** | Microsoft has the feature, but the footnotes matter; check scope before you sign anything |
+| ❌ **Gap** | You need a partner stack (Zscaler, Prisma, Cloudflare, and so on) or a hybrid Azure bolt-on |
 
 ---
 
@@ -1107,13 +1153,13 @@ Visitor → Entra External ID → Front Door Sydney PoP (WAF + DDoS) → **App G
 | **Posture and compliance** | Defender for Cloud, Azure Policy initiatives, compliance dashboards | **Same** in Azure; SASE telemetry also subject to retention and DPA in Sentinel | Possible **incremental** Log Analytics ingestion cost for SASE logs; **GDPR/PoP** legal review (ADR-S005) |
 | **Operational ownership** | Central SRE owns hubs, firewalls, VWAN; network team owns ExpressRoute | Central SRE **co-manages** with SASE vendor NOC; SD-WAN partner for underlay | **FTE** mix changes: fewer Azure Firewall experts needed, more **SSE/SD-WAN** vendor management and integration engineers |
 
-Governance is still **central** (one GlobalParks policy intent), but **enforcement is distributed** across Azure Resource Manager and the SASE control plane. That split is the main driver for **duplicate tooling, double runbooks, and coordination cost** in TCO models.
+Policy intent stays **central** (one GlobalParks story), yet **enforcement** now spans **Azure Resource Manager** and a vendor **PoP** console. Expect duplicated tooling, paired runbooks, and more coordination hours when you budget.
 
 ---
 
 ### Cost and TCO modeling (inputs for trade-off conversations)
 
-Use this checklist when comparing Azure-native vs SASE **capital and operating** cost and **implementation time**. The document does not fix dollar amounts; fill cells with quotes from Finance and vendors.
+Below is a checklist, not a quote sheet. Plug in numbers from Finance and your **SD-WAN** / SASE partners when you scenario-plan.
 
 | Category | What to quantify | Typical inputs |
 |---|---|---|
@@ -1125,35 +1171,35 @@ Use this checklist when comparing Azure-native vs SASE **capital and operating**
 | **Run state (recurring)** | Patch and upgrade cycles (24 firewalls vs PoP SLA), on-call, ticket volume, training | SRE and NOC time studies |
 | **Risk / compliance** | GDPR PoP routing, PCI scope changes, insurance or audit findings | Legal and QSA input |
 
-Roll these into a **3-5 year TCO (total cost of ownership)** view: **Year 1** (implementation-heavy) vs **steady state** (licensing + operations). Tie governance rows above to **who bills** (cloud center of excellence vs security vs network).
+Roll the rows into a **three- to five-year TCO** picture: a heavy **Year 1** for migration, then **steady state** for licenses and people. Map each bucket to whoever actually pays (cloud platform team, security, networks).
 
 ---
 
-### Illustrative cost comparison (Azure-native vs SASE) — planning bands only
+### Illustrative cost comparison (Azure-native vs SASE): planning bands only
 
-**Not a quote.** Order-of-magnitude **USD** for **internal trade-off conversations** only. Replace every band with **EA (Enterprise Agreement)**, **SD-WAN** partner, and Microsoft field pricing.
+Rough **USD** bands for hallway math only. Your **EA**, **SD-WAN** quote, and Microsoft field team will replace every number here.
 
-**Shared assumptions** (aligned to this document): **12 Azure regions**, **24× Azure Firewall Premium** and **12× VWAN** in the Azure-native reference; **~2,500** combined **admin + ranger** users in scope for **SSE (Security Service Edge)**-class services; **12** corporate/legacy branch sites needing **WAN (wide area network)** attachment; **ExpressRoute** modeled as **4** active circuits on Azure-native admin paths vs **internet underlay** + **SD-WAN** on the SASE path; **RBI (remote browser isolation)** on **~500** high-risk users **if** mandated.
+**Assumptions baked into the tables:** **12** Azure regions, **24** **Azure Firewall Premium** instances and **12** **VWAN** hubs in the Azure-native sketch, about **2,500** admins and rangers in **SSE**-class licensing, **12** branch-style sites, **4** **ExpressRoute** circuits on the Azure-native admin side versus **internet** + **SD-WAN** on the SASE side, and optional **RBI** for ~**500** high-touch users if compliance demands it.
 
 #### Cost types (read tables with these lenses)
 
 | Cost type | What it usually includes | How to use it |
 |---|---|---|
-| **One-time** | Design, build, migration, cutover, testing, training spike, capital equipment if purchased (e.g. some **CPE (customer premises equipment)**) | **Cash out** in **Year 1**; optionally **amortise** over 3–5 years for **TCO** comparison—not the same as “annual run rate.” |
+| **One-time** | Design, build, migration, cutover, testing, training spike, capital equipment if purchased (e.g. some **CPE (customer premises equipment)**) | **Cash out** in **Year 1**; optionally **amortise** over 3 to 5 years for **TCO** comparison; not the same as “annual run rate.” |
 | **Recurring** | Azure meters, **SaaS (software as a service)** / **SSE** licenses, **SD-WAN** subscriptions, partner **FWaaS (Firewall-as-a-Service)** / **RBI**, **Log Analytics** ingestion | **Steady-state** **OpEx (operating expenditure)**; compare **after** pilots are stable. |
 | **Operational (people and process)** | **SRE (site reliability engineering)**, **NOC (network operations center)**, vendor **TAM (technical account manager)** hours, **dual runbooks** (Azure + SASE console), audit and **DPA (data processing agreement)** effort | Often **larger than license deltas**; **Azure-native** leans on **firewall + VWAN (virtual wide area network)** depth; **SASE** leans on **co-management** with **PoP (point of presence)** vendor and **SD-WAN** partner. Rarely zero-sum. |
 
-No single row answers “which is cheaper”; **recurring Azure meters** can fall on **SASE** while **per-user SSE** and **partners** rise, and **Year 1** can invert **steady state**.
+Do not read a single row as “winner/loser.” **Azure** spend can drop while **per-user** fees and partners climb, and **Year 1** dual-run can swamp either steady-state story.
 
 #### Three approaches and their trade-offs
 
-Use these as **scenarios** when building a **3–5 year** model—not as mutually exclusive forever states.
+Use these as **scenarios** when building a **3 to 5 year** model, not as mutually exclusive forever states.
 
 | Approach | Description | Where spend concentrates | Typical trade-offs |
 |---|---|---|---|
-| **A — Azure-native (hub inspection)** | **ExpressRoute**, **VWAN**, **Azure Firewall Premium** in every hub; **P2S (point-to-site) VPN** / **S2S (site-to-site) VPN** for branches and rangers as in `DESIGN.md` | **High** recurring **Azure network meters** (firewall instances, gateways, circuits); **lower** incremental **Microsoft SSE** if privileged users do not use **GSA (Global Secure Access)** for the same paths | **Pros:** **IDPS (intrusion detection and prevention system)** and **L3–L7** in Azure under your **RBAC (role-based access control)**; predictable for teams already strong on **Azure Firewall Manager**. **Cons:** **CapEx/OpEx** for **ER** lead time and **24** firewall footprints; scale is **per region/instance**, not **per user**. |
-| **B — Microsoft-led SASE (this document’s baseline)** | **SD-WAN** to **SASE PoP**, **Microsoft SSE** (**Entra Private Access**, **Entra Internet Access**, **Defender for Cloud Apps**), **Private Access Connector**, optional **RBI** / third-party **FWaaS** to close **PoP IDPS** gaps | **Lower** **Azure Firewall + VWAN** meter (often **$0** in pure form); **higher** **SSE** licensing (unless already **E5**); **new** **SD-WAN**, optional **RBI** / partner **FWaaS** | **Pros:** Shifts from **dedicated circuits** and **hub** appliances toward **per-user** and **PoP** **SLA (service level objective)**; faster branch onboarding over **internet underlay**. **Cons:** **Second policy plane**; **partner** stack; **Microsoft SSE** alone does not replace full **PoP IDPS** without partner or hybrid (see **Approach C**). |
-| **C — Hybrid mitigations** | Keep **reduced** **Azure Firewall** footprint (e.g. selective regions or **B2C (business-to-consumer)** **IDPS** only) **or** third-party **FWaaS** while rolling **SSE** for **ZTNA (zero trust network access)** / **SWG (secure web gateway)** | **Split** between Azure meters and **SSE + partners**; often **highest** tool count **unless** staged | **Pros:** Closes **REQ-4.1** gaps (e.g. **B2C IDPS**, **PoP IDPS**) without all-or-nothing rip-and-replace. **Cons:** **Duplicate** cost and **operational** tax until consolidation; needs explicit **exit** plan. |
+| **A:** Azure-native (hub inspection) | **ExpressRoute**, **VWAN**, **Azure Firewall Premium** in every hub; **P2S (point-to-site) VPN** / **S2S (site-to-site) VPN** for branches and rangers as in `DESIGN.md` | **High** recurring **Azure network meters** (firewall instances, gateways, circuits); **lower** incremental **Microsoft SSE** if privileged users do not use **GSA (Global Secure Access)** for the same paths | **Pros:** **IDPS (intrusion detection and prevention system)** and **L3 to L7** in Azure under your **RBAC (role-based access control)**; predictable for teams already strong on **Azure Firewall Manager**. **Cons:** **CapEx/OpEx** for **ER** lead time and **24** firewall footprints; scale is **per region/instance**, not **per user**. |
+| **B:** Microsoft-led SASE (this document’s baseline) | **SD-WAN** to **SASE PoP**, **Microsoft SSE** (**Entra Private Access**, **Entra Internet Access**, **Defender for Cloud Apps**), **Private Access Connector**, optional **RBI** / third-party **FWaaS** to close **PoP IDPS** gaps | **Lower** **Azure Firewall + VWAN** meter (often **$0** in pure form); **higher** **SSE** licensing (unless already **E5**); **new** **SD-WAN**, optional **RBI** / partner **FWaaS** | **Pros:** Shifts from **dedicated circuits** and **hub** appliances toward **per-user** and **PoP** **SLA (service level objective)**; faster branch onboarding over **internet underlay**. **Cons:** **Second policy plane**; **partner** stack; **Microsoft SSE** alone does not replace full **PoP IDPS** without partner or hybrid (see **Approach C**). |
+| **C:** Hybrid mitigations | Keep **reduced** **Azure Firewall** footprint (e.g. selective regions or **B2C (business-to-consumer)** **IDPS** only) **or** third-party **FWaaS** while rolling **SSE** for **ZTNA (zero trust network access)** / **SWG (secure web gateway)** | **Split** between Azure meters and **SSE + partners**; often **highest** tool count **unless** staged | **Pros:** Closes **REQ-4.1** gaps (e.g. **B2C IDPS**, **PoP IDPS**) without all-or-nothing rip-and-replace. **Cons:** **Duplicate** cost and **operational** tax until consolidation; needs explicit **exit** plan. |
 
 **When Approach A tends to look stronger on TCO (illustrative, not a rule):** Very large **inspected throughput** where **per-GB** or **per-user** **SSE** would scale badly; **existing** **ER** commits and **discounted** **Azure** consumption; **small** privileged user count vs **many** regional hubs already sunk; team **run cost** already absorbed for **Firewall** operations.
 
@@ -1165,7 +1211,7 @@ Use these as **scenarios** when building a **3–5 year** model—not as mutuall
 
 These rows are **recurring OpEx** only (rough **annual** bands). They **do not** include **one-time** implementation or **FTE**.
 
-| Cost bucket | Approach A — Azure-native | Approach B — SASE (this doc) | Cost type | Notes |
+| Cost bucket | Approach A (Azure-native) | Approach B (SASE, this doc) | Cost type | Notes |
 |---|---|---|---|---|
 | **Azure Firewall Premium** (24 hubs) | ~$300k - $550k / yr | ~$0 *(pure baseline)* | Recurring | ~$1.0k - $1.9k / month / firewall × 24, varies by region and usage |
 | **VWAN + VPN Gateway** (12 hubs) | ~$120k - $280k / yr | ~$0 | Recurring | Scale units, gateways, data processing |
@@ -1178,7 +1224,7 @@ These rows are **recurring OpEx** only (rough **annual** bands). They **do not**
 
 #### Illustrative one-time bands (implementation / migration, USD, not annualised)
 
-| Cost bucket | Approach A — Azure-native | Approach B — SASE | Cost type | Notes |
+| Cost bucket | Approach A (Azure-native) | Approach B (SASE) | Cost type | Notes |
 |---|---|---|---|---|
 | **Programme delivery** (network, identity, **SecOps**) | ~$400k - $900k | ~$350k - $800k | One-time | **Firewall/VWAN/ER** commissioning vs **connectors**, **SD-WAN**, **policy** migration; **dual-run** adds **both** sides |
 | **Hybrid (Approach C) overlay** | *(add)* ~$150k - $400k incremental | *(add)* ~$100k - $350k incremental | One-time | **Phased** coexistence, extra testing, **rollback** rehearsal |
@@ -1187,17 +1233,17 @@ Treat **one-time** as **Year 1 cash** (or amortise over the **TCO** window your 
 
 #### How to read “totals” without fooling yourself
 
-**Summing the recurring table** for **Approach A** yields a **wide** band roughly **~$700k - $1.5M+ / yr** under the assumptions above; **Approach B** often lands roughly **~$350k - $900k / yr** **before** **third-party FWaaS** and **before** treating **SSE** as **incremental**.
+If you add the recurring table for **Approach A**, you land in a **~$700k to $1.5M+ / yr** band with the assumptions above. **Approach B** often prints **~$350k to $900k / yr** before you buy third-party **FWaaS** or treat **SSE** as incremental spend.
 
-**Critical adjustments:**
+**Sanity checks:**
 
-1. **If privileged users are already on M365 E5**, set **Microsoft SSE** incremental to **~$0** in **Approach B**; recurring **SASE** side is then **dominated** by **SD-WAN**, optional **RBI**, optional partner **FWaaS**, and **smaller** **ER**—while **Approach A** still pays **full** **Firewall + VWAN + ER** unless retired. **Net:** **B** can move from “lower recurring” to “**similar or higher**” if **E5** was already paid and **A**’s **Azure** stack is **heavily committed/discounted**.
+1. When everyone already has **E5**, **SSE** may add **$0** incremental on paper. Then **Approach B** is mostly **SD-WAN**, optional **RBI** / **FWaaS**, and smaller **ExpressRoute** retention, while **Approach A** still carries the full firewall + **VWAN** stack unless you retire it. In that world **B** is not automatically cheaper; it depends on committed **Azure** discounts.
 
-2. **Add operational (FTE) cost** explicitly: **Approach A** needs deep **Azure Firewall** / **VWAN** skills; **Approach B** needs **SSE** + **SD-WAN** + **PoP** **co-management**. **Rule of thumb:** if **FTE** is **under-modeled**, the “cheaper” architecture **flips** after go-live.
+2. Model **FTE**. Hub-heavy designs need firewall + **VWAN** depth. **SASE** designs need people who can run **PoP** policy and **SD-WAN** partners. Skip people cost and the “cheaper” option **flips** the month after launch.
 
-3. **Year 1** often **favors neither** purely—**dual-run**, **pilots**, and **parallel** **ER** + **SD-WAN** **inflate** cash before **steady state**.
+3. **Year 1** is ugly for both sides when you pilot, dual-run, or keep **ExpressRoute** while rolling **SD-WAN**.
 
-**Bottom line for economics:** **Neither** architecture is universally cheaper. **Approach B** typically **trades** **Azure network meters** for **per-user SSE** (unless **E5** absorbs it) **plus** **SD-WAN** and **optional** partners. **Approach A** optimizes when **hub-scale inspection** and **existing ER** economics dominate. **Approach C** buys **compliance** and **gradual** migration at **higher** **near-term** **TCO** complexity. Model **recurring**, **one-time**, and **operational** **separately** for **Finance** sign-off.
+**Practical takeaway:** **Neither** option wins on price by default. **Approach B** trades **Azure** meters for **per-user** and partner spend. **Approach A** wins when you already sunk cost into hubs and circuits. **Approach C** is the messy middle for compliance transitions. Show Finance three buckets: **recurring**, **one-time**, and **operational**.
 
 ---
 
@@ -1205,16 +1251,16 @@ Treat **one-time** as **Year 1 cash** (or amortise over the **TCO** window your 
 
 | Verdict | Explanation |
 |---|---|
-| **Pro - Identity and access control** | Microsoft's identity plane (Entra ID, Conditional Access, Entra ID Protection, Entra Private Access ZTNA) is best-in-class and natively integrated. No vendor can match the depth of Conditional Access + Entra ID Protection signal correlation. |
-| **Pro - Posture and compliance** | Defender for Cloud (CSPM), Sentinel (SIEM/SOAR), and Azure Policy are fully native. Compliance dashboards for PCI-DSS, GDPR, ISO 27001, NIST are built in. |
-| **Pro - DLP** | Microsoft Purview DLP with Sensitivity Labels provides unified policy across endpoint, SaaS, web, and email - a significant advantage over point-solution DLP. |
-| **Pro - Cost** | Entra Private Access and Entra Internet Access are included in M365 E5 or available as Entra Suite add-on—**reducing incremental SSE licensing** versus a third-party SASE stack. **Total TCO** still depends on **SD-WAN**, **ExpressRoute** retention, **Azure meters** retired or kept (hybrid), and **FTE**; see **Illustrative cost comparison** in [Appendix H](#appendix-h---requirements-traceability-full-detail). |
+| **Pro - Identity and access control** | Entra ID, Conditional Access, ID Protection, and **Entra Private Access** share one control plane. Signal-rich CA policies stay a strong reason to stay on Microsoft for **ZTNA**. |
+| **Pro - Posture and compliance** | Defender for Cloud, Sentinel, and Azure Policy land natively; compliance dashboards for PCI-DSS, GDPR, ISO 27001, and NIST ship in-box for many teams. |
+| **Pro - DLP** | Purview DLP plus sensitivity labels stretch across endpoint, SaaS, web, and mail in a way that is hard to replicate with single-point tools. |
+| **Pro - Cost** | Entra Private Access and Entra Internet Access are included in M365 E5 or available as Entra Suite add-on, which can **reduce** incremental SSE licensing versus a third-party SASE stack. **Total TCO** still depends on **SD-WAN**, **ExpressRoute** retention, **Azure meters** retired or kept (hybrid), and **FTE**; see **Illustrative cost comparison** in [Appendix H](#appendix-h---requirements-traceability-full-detail). |
 | **Con - No native FWaaS / IDPS at PoP** | Entra Internet Access is a SWG (L7 HTTP/HTTPS only). It does not provide IDPS, L3/L4 network firewall rules, or non-HTTP protocol inspection at the PoP. Azure Firewall Premium IDPS is not available in cloud-delivered form outside Azure VNets. |
 | **Con - No native SD-WAN** | Microsoft has no SD-WAN product. Branch-to-SASE-PoP connectivity requires a validated partner (Barracuda SecureEdge, VMware SD-WAN, Cisco Meraki). This introduces a second vendor regardless. |
 | **Con - SWG breadth** | Entra Internet Access is improving rapidly but currently lacks some advanced SWG features available in mature platforms (Zscaler ZIA, Netskope) - e.g. cloud sandbox detonation, full DNS security, advanced SSL inspection features. |
 | **Con - CASB non-Microsoft SaaS depth** | Defender for Cloud Apps covers 750+ SaaS apps but has shallower session controls for non-Microsoft apps compared to specialist CASB vendors (Netskope, Zscaler CASB). |
 | **Con - No native RBI** | Microsoft SSE (Entra Internet Access) has no Remote Browser Isolation capability. RBI prevents browser-borne malware from reaching endpoints during external web browsing - relevant for rangers and admins accessing external portals while also connected to ZTNA-published internal apps. A third-party partner (Zscaler Cloud Browser Isolation, Menlo Security, Palo Alto Prisma Browser Isolation) is required if RBI is needed for PCI-DSS scope compliance. Microsoft Edge for Business session controls (redirect to browser, read-only mode) are the closest native partial control. |
-| **Bottom line** | Microsoft SSE is the right choice if identity, posture, DLP, and ZTNA are the primary priorities and the IDPS gap on the admin/ranger path is accepted or mitigated. A third-party SASE vendor is required if network-layer FWaaS with IDPS at the PoP is mandatory - which it is for GlobalParks PCI-DSS and ISO 27001 scope (privileged access to payment data systems). RBI is an additional partner capability that may be required depending on PCI-DSS scope assessment (Q-S08). |
+| **Bottom line** | Microsoft **SSE** is compelling when identity, posture, **DLP**, and **ZTNA** matter most and you can live with the **SWG**-class gaps at the **PoP**. GlobalParks still needs **IDPS** depth for privileged paths and may need **RBI** for scoped browsers, so plan on partner **FWaaS** / **RBI** (see **Q-S08**) even if you standardize on Microsoft for the core stack. |
 
 ---
 
