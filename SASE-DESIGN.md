@@ -6,19 +6,19 @@
 | **Audience** | Security Architects, Network Team |
 | **Cloud scope** | Microsoft Azure - SASE / SSE overlay |
 | **Operations model** | Central Cloud SRE team + SASE vendor operations |
-| **Status** | v1.21 - SASE iteration |
-| **Last updated** | 2026-04-05 |
-| **Companion document** | [DESIGN.md](DESIGN.md) - Azure-native Hub-and-Spoke reference architecture |
+| **Status** | v1.22 - SASE iteration |
+| **Last updated** | 2026-04-06 |
+| **Companion document** | <a href="DESIGN.md" target="_blank" rel="noopener noreferrer">DESIGN.md</a> - Azure-native Hub-and-Spoke reference architecture |
 
 ---
 
 ## How to use this document
 
-**SASE** companion to [`DESIGN.md`](DESIGN.md): same GlobalParks story, but enforcement shifts from Azure hub firewalls toward **SASE at the edge**.
+**SASE** companion to <a href="DESIGN.md" target="_blank" rel="noopener noreferrer"><code>DESIGN.md</code></a>: same GlobalParks story, but enforcement shifts from Azure hub firewalls toward **SASE at the edge**.
 
 Use the **Table of Contents** below. Main sections stay readable; depth lives in **Appendices A–H**. Appendix sections link back when you need to return.
 
-Optional: open **[sase-networking-flowchart.html](sase-networking-flowchart.html)** in a browser—the diagram uses the same **STEP** / **SCN** / **REQ** labels as this file.
+Optional: open <a href="sase-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><strong>sase-networking-flowchart.html</strong></a> in a browser—the diagram uses the same **STEP** / **SCN** / **REQ** labels as this file.
 
 <a id="nav-using-flowchart"></a>
 
@@ -57,7 +57,7 @@ Optional: open **[sase-networking-flowchart.html](sase-networking-flowchart.html
 ## 1. Executive Summary
 
 > **Interactive diagram**
-> **[sase-networking-flowchart.html](sase-networking-flowchart.html)** uses the same **STEP** / **SCN** / **REQ** labels as this document (see **How to use** above).
+> <a href="sase-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><strong>sase-networking-flowchart.html</strong></a> uses the same **STEP** / **SCN** / **REQ** labels as this document (see **How to use** above).
 
 ---
 
@@ -188,11 +188,11 @@ GlobalParks stays an **eight-tier** security model (same tier numbers as `DESIGN
 
 ### T3 and T4 in the diagram (subset)
 
-The interactive diagram is **[sase-networking-flowchart.html](sase-networking-flowchart.html)** (same Mermaid structure as Appendix A, with filters and walkthroughs).
+The interactive diagram is <a href="sase-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><strong>sase-networking-flowchart.html</strong></a> (same Mermaid structure as Appendix A, with filters and walkthroughs).
 
 **In the flowchart:** open the file in a browser, choose the **Tier** tab, then select **Tier 3** and **Tier 4** in turn to isolate those layers. For end-to-end context, use **Walkthrough** (Admin SD-WAN or Ranger ZTNA) so T3 and T4 appear in path order.
 
-This **PNG** is generated from the **Tier 3** and **Tier 4** subgraphs (and edges between those nodes) inside **[sase-networking-flowchart.html](sase-networking-flowchart.html)**, so the figure tracks the live flowchart. The full eight-tier Mermaid source is still in **[Appendix A](#appendix-a---architecture-diagram-mermaid-source)**.
+This **PNG** is generated from the **Tier 3** and **Tier 4** subgraphs (and edges between those nodes) inside <a href="sase-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><strong>sase-networking-flowchart.html</strong></a>, so the figure tracks the live flowchart. The full eight-tier Mermaid source is still in **[Appendix A](#appendix-a---architecture-diagram-mermaid-source)**.
 
 **After you change Tier 3 or Tier 4** in `sase-networking-flowchart.html`, regenerate the image from the repo root:
 
@@ -208,7 +208,7 @@ That script writes `docs/diagrams/sase-section4-t3-t4.mmd` (for debugging) and u
 
 | Your question or goal | Open this |
 |---|---|
-| See the **full** eight-tier picture (diagram or interactive) | [Appendix A](#appendix-a---architecture-diagram-mermaid-source) Mermaid, or **[sase-networking-flowchart.html](sase-networking-flowchart.html)** with no Tier filter |
+| See the **full** eight-tier picture (diagram or interactive) | [Appendix A](#appendix-a---architecture-diagram-mermaid-source) Mermaid, or <a href="sase-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><strong>sase-networking-flowchart.html</strong></a> with no Tier filter |
 | **Per tier:** what Azure-native had vs what SASE does (inventory-style) | [Appendix E §4.1](#appendix-e-41-n-tier-architecture-diagram) tier-by-tier comparison |
 | **OSI:** which layer is enforced where after SASE | [Appendix E §4.2](#appendix-e-42-osi-layer-control-mapping) |
 | **Security ops:** detection vs prevention by tier, telemetry | [Appendix E §4.3](#appendix-e-43-detection-and-prevention-by-tier) |
@@ -422,7 +422,7 @@ The Mermaid source below generates the SASE eight-tier architecture diagram. Eac
 | Method | How |
 |---|---|
 | **GitHub (online)** | GitHub renders Mermaid natively - diagram displays automatically |
-| **Interactive browser** | Open [`sase-networking-flowchart.html`](sase-networking-flowchart.html) - full filtering and SASE-specific walkthroughs |
+| **Interactive browser** | Open <a href="sase-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><code>sase-networking-flowchart.html</code></a> - full filtering and SASE-specific walkthroughs |
 | **Mermaid Live Editor** | Copy the code block and paste at [mermaid.live](https://mermaid.live) |
 
 ---
@@ -691,7 +691,7 @@ Conditional Access policies for administrators and rangers remain **aligned** wi
 
 The SASE architecture retains eight tiers but the **content and components of Tier 3 and Tier 4 change fundamentally**. Tiers 0, 1, 2, 5A, 5B, 6, 7, and 8 evolve (some components removed, some added) while preserving the same security intent.
 
-**Interactive visualization** - View [`sase-networking-flowchart.html`](sase-networking-flowchart.html) in any browser. Filter by Tier, Scenario, Requirement, Step, or OSI Layer. Use the Walkthrough tab for the Admin SD-WAN path and Ranger ZTNA path step-by-step traces.
+**Interactive visualization** - View <a href="sase-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><code>sase-networking-flowchart.html</code></a> in any browser. Filter by Tier, Scenario, Requirement, Step, or OSI Layer. Use the Walkthrough tab for the Admin SD-WAN path and Ranger ZTNA path step-by-step traces.
 
 **Diagram source and rendering** - The complete Mermaid source is in [Appendix A](#appendix-a---architecture-diagram-mermaid-source).
 
@@ -777,7 +777,7 @@ The SASE architecture adds a new telemetry source (SASE vendor logs) to the dete
 
 Walk through these steps in order; it is the same sequence as `DESIGN.md` Section 5. At the end of each step you get a small table: what moved, what stayed, and what SASE adds or removes versus the Azure-native design.
 
-If **[sase-networking-flowchart.html](sase-networking-flowchart.html)** is open, set the **Step** filter to the same **STEP-###** ID. Scenario links such as **SCN-002** point to [Appendix G](#appendix-g---scenario-traces-full-detail), where the same flow is written out as a numbered path.
+If <a href="sase-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><strong>sase-networking-flowchart.html</strong></a> is open, set the **Step** filter to the same **STEP-###** ID. Scenario links such as **SCN-002** point to [Appendix G](#appendix-g---scenario-traces-full-detail), where the same flow is written out as a numbered path.
 
 ---
 
@@ -1409,6 +1409,7 @@ If you add the recurring table for **Approach A**, you land in a **~$700k to $1.
 | 1.19 | 2026-04-04 | **Navigation:** explicit `nav-*` anchors for **Sections 1–10**, **§1.1** glossary stub, **Section 2** delivery subsection, **How to use** flowchart guide, every **Appendix F** STEP and **Appendix G** SCN; all matching links and **Back to Section** / **Back to STEP** hrefs updated; **Appendix E** §4.1–§4.3 add **Back to Section 4** under each heading; doc status v1.19. |
 | 1.20 | 2026-04-04 | **How to use** shortened (removed subsections, mapping table, and jump-target note); Executive Summary diagram callout aligned; doc status v1.20. |
 | 1.21 | 2026-04-05 | **Section 7** = requirements **summary** with explicit jump to **Appendix H** only for the full matrix; **`#nav-appendix-h`** anchor placed **before** the Appendix H heading (avoids bad jumps to Mermaid in some Markdown viewers); **§10 Revision History** moved to **after Appendix H** so appendices read **A–H** in order; **TOC** lists A–H then §10; doc status v1.21. |
+| 1.22 | 2026-04-06 | Cross-doc links to **`DESIGN.md`**, **`SASE-DESIGN.md`**, **`azure-networking-flowchart.html`**, and **`sase-networking-flowchart.html`** use HTML `<a target="_blank" rel="noopener noreferrer">` in **SASE-DESIGN**, **DESIGN**, and **README**; flowchart HTML compare links updated; doc status v1.22. |
 
 **Maintainers:** After each edit, add a revision row if needed, then set the **Status** and **Last updated** fields at the top to match that row’s **Version** and **Date**. Run **`python scripts/check-sase-design-revision-sync.py`** before you push; the **SASE-DESIGN revision sync** GitHub Action runs the same check on pull requests and pushes that touch this file.
 

@@ -38,11 +38,11 @@
 > As you read through this document, keep the live diagram open alongside it.
 > Each `STEP-###`, `SCN-###`, and `REQ-#.#` reference in the text maps directly to a highlighted node in the diagram.
 >
-> **[Open azure-networking-flowchart.html →](https://baskar-commits.github.io/globalparks-cloud-network-security/azure-networking-flowchart.html)**
+> **<a href="https://baskar-commits.github.io/globalparks-cloud-network-security/azure-networking-flowchart.html" target="_blank" rel="noopener noreferrer">Open azure-networking-flowchart.html →</a>**
 >
 > Use the **Tier**, **Step**, **Scenario**, **Requirement**, and **OSI Layer** filter tabs to highlight the relevant components, or step through the **Walkthrough** mode for SCN-009 and SCN-010 to see end-to-end visitor flows animated node by node.
 
-**SASE alternative architecture:** For the same GlobalParks requirements re-architected with Secure Access Service Edge (SASE) at the edge instead of Hub VNets, Azure Firewall, and Virtual WAN on the privileged path, see companion **[SASE-DESIGN.md](SASE-DESIGN.md)** and the interactive **[sase-networking-flowchart.html](sase-networking-flowchart.html)** (same filtering and walkthrough pattern as this document's HTML diagram).
+**SASE alternative architecture:** For the same GlobalParks requirements re-architected with Secure Access Service Edge (SASE) at the edge instead of Hub VNets, Azure Firewall, and Virtual WAN on the privileged path, see companion <a href="SASE-DESIGN.md" target="_blank" rel="noopener noreferrer"><strong>SASE-DESIGN.md</strong></a> and the interactive <a href="sase-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><strong>sase-networking-flowchart.html</strong></a> (same filtering and walkthrough pattern as this document's HTML diagram).
 
 ---
 
@@ -171,7 +171,7 @@ The platform is designed as an eight-tier security architecture, where each tier
 
 The platform is structured as eight tiers, each mapping to one or more OSI layers, traversed in sequence - no tier can be bypassed. Each tier band carries a `STEP-###` label that links to the full explanation in [Section 5](#5-architecture-walkthrough). Arrows carry `SCN-###` labels linking to [Section 6](#6-scenario-traces) and `REQ-#.#` labels linking to [Section 7](#7-requirements-traceability-matrix).
 
-**Interactive visualization** - View [`azure-networking-flowchart.html`](https://baskar-commits.github.io/globalparks-cloud-network-security/azure-networking-flowchart.html) online (GitHub Pages), or open the file locally in any browser. Filter by Tier, Scenario, Requirement, Step, or OSI Layer; step through the SCN-009 and SCN-010 walkthroughs; and view the STEP-080 Security Operations detail in [Section 4.3](#43-step-080-security-operations---detailed-view).
+**Interactive visualization** - View <a href="https://baskar-commits.github.io/globalparks-cloud-network-security/azure-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><code>azure-networking-flowchart.html</code></a> online (GitHub Pages), or open the file locally in any browser. Filter by Tier, Scenario, Requirement, Step, or OSI Layer; step through the SCN-009 and SCN-010 walkthroughs; and view the STEP-080 Security Operations detail in [Section 4.3](#43-step-080-security-operations---detailed-view).
 
 **Diagram source and rendering** - The complete Mermaid source is in [Appendix A](#appendix-a---architecture-diagram-mermaid-source). GitHub renders it automatically when this file is viewed online. It can also be pasted into the [Mermaid Live Editor](https://mermaid.live) to export a standalone PNG or SVG.
 
@@ -848,7 +848,7 @@ The Mermaid source below generates the eight-tier N-tier architecture diagram re
 | Method | How |
 |---|---|
 | **GitHub (online)** | GitHub renders Mermaid natively - the diagram displays automatically when you view this file in the GitHub web UI. No action needed. |
-| **Interactive browser** | Open [`azure-networking-flowchart.html`](azure-networking-flowchart.html) in any browser. Supports filtering by Tier, Scenario, Requirement, Step, and OSI Layer, plus step-by-step walkthrough scenarios. |
+| **Interactive browser** | Open <a href="azure-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><code>azure-networking-flowchart.html</code></a> in any browser. Supports filtering by Tier, Scenario, Requirement, Step, and OSI Layer, plus step-by-step walkthrough scenarios. |
 | **Mermaid Live Editor** | Copy the code block below and paste it at [mermaid.live](https://mermaid.live). Export as PNG or SVG for use in presentations or other documents. |
 | **VS Code / Cursor** | Install the [Markdown Preview Mermaid Support](https://marketplace.visualstudio.com/items?itemName=bierner.markdown-mermaid) extension. Open the Markdown preview pane to see the rendered diagram alongside the document. |
 | **mermaid-cli (CI/CD)** | Run `mmdc -i DESIGN.md -o architecture.png` to generate a PNG as part of a documentation pipeline. Requires Node.js and `@mermaid-js/mermaid-cli`. |

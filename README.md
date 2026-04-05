@@ -6,32 +6,32 @@ Detailed Design Document (DDD) for the GlobalParks platform - a multi-regional, 
 
 | File | Description |
 |---|---|
-| [`DESIGN.md`](DESIGN.md) | The full Detailed Design Document - scenarios, requirements, architecture walkthrough, decision records, and traceability matrix (Azure-native Hub-and-Spoke) |
-| [`SASE-DESIGN.md`](SASE-DESIGN.md) | Companion design - same requirements framed as SASE at the edge; comparison tables and traceability vs `DESIGN.md` |
-| [`azure-networking-flowchart.html`](azure-networking-flowchart.html) | Interactive visualization for the Azure-native architecture - open in a browser |
-| [`sase-networking-flowchart.html`](sase-networking-flowchart.html) | Interactive visualization for the SASE architecture - same filters and walkthrough pattern |
+| <a href="DESIGN.md" target="_blank" rel="noopener noreferrer"><code>DESIGN.md</code></a> | The full Detailed Design Document - scenarios, requirements, architecture walkthrough, decision records, and traceability matrix (Azure-native Hub-and-Spoke) |
+| <a href="SASE-DESIGN.md" target="_blank" rel="noopener noreferrer"><code>SASE-DESIGN.md</code></a> | Companion design - same requirements framed as SASE at the edge; comparison tables and traceability vs `DESIGN.md` |
+| <a href="azure-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><code>azure-networking-flowchart.html</code></a> | Interactive visualization for the Azure-native architecture - open in a browser |
+| <a href="sase-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><code>sase-networking-flowchart.html</code></a> | Interactive visualization for the SASE architecture - same filters and walkthrough pattern |
 
 ## Interactive visualization (browser links)
 
 | Option | Link |
 |---|---|
-| **GitHub Pages** (recommended) | [azure-networking-flowchart.html](https://baskar-commits.github.io/globalparks-cloud-network-security/azure-networking-flowchart.html) (Azure-native) and [sase-networking-flowchart.html](https://baskar-commits.github.io/globalparks-cloud-network-security/sase-networking-flowchart.html) (SASE) - enable in repo Settings → Pages → main branch |
-| **HTML Preview** (works immediately) | [htmlpreview.github.io link](https://htmlpreview.github.io/?https://github.com/BASKAR-Commits/globalparks-cloud-network-security/blob/main/azure-networking-flowchart.html) |
+| **GitHub Pages** (recommended) | <a href="https://baskar-commits.github.io/globalparks-cloud-network-security/azure-networking-flowchart.html" target="_blank" rel="noopener noreferrer">azure-networking-flowchart.html</a> (Azure-native) and <a href="https://baskar-commits.github.io/globalparks-cloud-network-security/sase-networking-flowchart.html" target="_blank" rel="noopener noreferrer">sase-networking-flowchart.html</a> (SASE) - enable in repo Settings → Pages → main branch |
+| **HTML Preview** (works immediately) | <a href="https://htmlpreview.github.io/?https://github.com/BASKAR-Commits/globalparks-cloud-network-security/blob/main/azure-networking-flowchart.html" target="_blank" rel="noopener noreferrer">htmlpreview.github.io link</a> |
 
 ---
 
 ## How to read the design document
 
-Open [`DESIGN.md`](DESIGN.md) directly in GitHub. The document renders with full Mermaid diagram support - the Security Operations diagram in Section 4.3 and the N-Tier diagram in Appendix A display automatically.
+Open <a href="DESIGN.md" target="_blank" rel="noopener noreferrer"><code>DESIGN.md</code></a> directly in GitHub. The document renders with full Mermaid diagram support - the Security Operations diagram in Section 4.3 and the N-Tier diagram in Appendix A display automatically.
 
 The document is structured for two reading modes:
 
 - **Top-down narrative** - Read Sections 1 through 5 in order to understand the architecture from first principles
-- **Scenario-driven** - Jump to [Section 6 - Scenario Traces](DESIGN.md#6-scenario-traces) and follow a specific user journey (e.g. SCN-009: Sydney visitor booking Great Barrier Reef), then follow the `STEP-###` links back into Section 5 for detail on each hop
+- **Scenario-driven** - Jump to <a href="DESIGN.md#6-scenario-traces" target="_blank" rel="noopener noreferrer">Section 6 - Scenario Traces</a> and follow a specific user journey (e.g. SCN-009: Sydney visitor booking Great Barrier Reef), then follow the `STEP-###` links back into Section 5 for detail on each hop
 
 ## Interactive visualization
 
-Download the repository and open `azure-networking-flowchart.html` in any browser (Chrome, Edge, Firefox). No server or installation required - it is a single self-contained HTML file.
+Download the repository and open <a href="azure-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><code>azure-networking-flowchart.html</code></a> in any browser (Chrome, Edge, Firefox). No server or installation required - it is a single self-contained HTML file.
 
 The interactive view supports:
 
