@@ -6,15 +6,15 @@
 | **Audience** | Security Architects, Network Team |
 | **Cloud scope** | Microsoft Azure - SASE / SSE overlay |
 | **Operations model** | Central Cloud SRE team + SASE vendor operations |
-| **Status** | v1.22 - SASE iteration |
-| **Last updated** | 2026-04-06 |
-| **Companion document** | <a href="DESIGN.md" target="_blank" rel="noopener noreferrer">DESIGN.md</a> - Azure-native Hub-and-Spoke reference architecture |
+| **Status** | v1.23 - SASE iteration |
+| **Last updated** | 2026-04-07 |
+| **Companion document** | <a href="https://baskar-commits.github.io/globalparks-cloud-network-security/DESIGN.html" target="_blank" rel="noopener noreferrer">DESIGN.md</a> - Azure-native Hub-and-Spoke reference architecture |
 
 ---
 
 ## How to use this document
 
-**SASE** companion to <a href="DESIGN.md" target="_blank" rel="noopener noreferrer"><code>DESIGN.md</code></a>: same GlobalParks story, but enforcement shifts from Azure hub firewalls toward **SASE at the edge**.
+**SASE** companion to <a href="https://baskar-commits.github.io/globalparks-cloud-network-security/DESIGN.html" target="_blank" rel="noopener noreferrer"><code>DESIGN.md</code></a>: same GlobalParks story, but enforcement shifts from Azure hub firewalls toward **SASE at the edge**.
 
 Use the **Table of Contents** below. Main sections stay readable; depth lives in **Appendices A–H**. Appendix sections link back when you need to return.
 
@@ -1410,6 +1410,7 @@ If you add the recurring table for **Approach A**, you land in a **~$700k to $1.
 | 1.20 | 2026-04-04 | **How to use** shortened (removed subsections, mapping table, and jump-target note); Executive Summary diagram callout aligned; doc status v1.20. |
 | 1.21 | 2026-04-05 | **Section 7** = requirements **summary** with explicit jump to **Appendix H** only for the full matrix; **`#nav-appendix-h`** anchor placed **before** the Appendix H heading (avoids bad jumps to Mermaid in some Markdown viewers); **§10 Revision History** moved to **after Appendix H** so appendices read **A–H** in order; **TOC** lists A–H then §10; doc status v1.21. |
 | 1.22 | 2026-04-06 | Cross-doc links to **`DESIGN.md`**, **`SASE-DESIGN.md`**, **`azure-networking-flowchart.html`**, and **`sase-networking-flowchart.html`** use HTML `<a target="_blank" rel="noopener noreferrer">` in **SASE-DESIGN**, **DESIGN**, and **README**; flowchart HTML compare links updated; doc status v1.22. |
+| 1.23 | 2026-04-07 | **Companion document** and **How to use** links to the Azure-native design point to GitHub Pages **`DESIGN.html`** (`globalparks-cloud-network-security` site) so published **SASE-DESIGN.html** resolves the sibling page correctly; doc status v1.23. |
 
 **Maintainers:** After each edit, add a revision row if needed, then set the **Status** and **Last updated** fields at the top to match that row’s **Version** and **Date**. Run **`python scripts/check-sase-design-revision-sync.py`** before you push; the **SASE-DESIGN revision sync** GitHub Action runs the same check on pull requests and pushes that touch this file.
 

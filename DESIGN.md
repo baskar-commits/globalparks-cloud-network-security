@@ -42,7 +42,7 @@
 >
 > Use the **Tier**, **Step**, **Scenario**, **Requirement**, and **OSI Layer** filter tabs to highlight the relevant components, or step through the **Walkthrough** mode for SCN-009 and SCN-010 to see end-to-end visitor flows animated node by node.
 
-**SASE alternative architecture:** For the same GlobalParks requirements re-architected with Secure Access Service Edge (SASE) at the edge instead of Hub VNets, Azure Firewall, and Virtual WAN on the privileged path, see companion <a href="SASE-DESIGN.md" target="_blank" rel="noopener noreferrer"><strong>SASE-DESIGN.md</strong></a> and the interactive <a href="sase-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><strong>sase-networking-flowchart.html</strong></a> (same filtering and walkthrough pattern as this document's HTML diagram).
+**SASE alternative architecture:** For the same GlobalParks requirements re-architected with Secure Access Service Edge (SASE) at the edge instead of Hub VNets, Azure Firewall, and Virtual WAN on the privileged path, see companion <a href="https://baskar-commits.github.io/globalparks-cloud-network-security/SASE-DESIGN.html" target="_blank" rel="noopener noreferrer"><strong>SASE-DESIGN.md</strong></a> and the interactive <a href="sase-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><strong>sase-networking-flowchart.html</strong></a> (same filtering and walkthrough pattern as this document's HTML diagram).
 
 ---
 

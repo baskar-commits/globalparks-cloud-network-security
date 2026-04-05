@@ -6,8 +6,8 @@ Detailed Design Document (DDD) for the GlobalParks platform - a multi-regional, 
 
 | File | Description |
 |---|---|
-| <a href="DESIGN.md" target="_blank" rel="noopener noreferrer"><code>DESIGN.md</code></a> | The full Detailed Design Document - scenarios, requirements, architecture walkthrough, decision records, and traceability matrix (Azure-native Hub-and-Spoke) |
-| <a href="SASE-DESIGN.md" target="_blank" rel="noopener noreferrer"><code>SASE-DESIGN.md</code></a> | Companion design - same requirements framed as SASE at the edge; comparison tables and traceability vs `DESIGN.md` |
+| <a href="https://baskar-commits.github.io/globalparks-cloud-network-security/DESIGN.html" target="_blank" rel="noopener noreferrer"><code>DESIGN.md</code></a> | The full Detailed Design Document - scenarios, requirements, architecture walkthrough, decision records, and traceability matrix (Azure-native Hub-and-Spoke) |
+| <a href="https://baskar-commits.github.io/globalparks-cloud-network-security/SASE-DESIGN.html" target="_blank" rel="noopener noreferrer"><code>SASE-DESIGN.md</code></a> | Companion design - same requirements framed as SASE at the edge; comparison tables and traceability vs `DESIGN.md` |
 | <a href="azure-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><code>azure-networking-flowchart.html</code></a> | Interactive visualization for the Azure-native architecture - open in a browser |
 | <a href="sase-networking-flowchart.html" target="_blank" rel="noopener noreferrer"><code>sase-networking-flowchart.html</code></a> | Interactive visualization for the SASE architecture - same filters and walkthrough pattern |
 
@@ -22,12 +22,12 @@ Detailed Design Document (DDD) for the GlobalParks platform - a multi-regional, 
 
 ## How to read the design document
 
-Open <a href="DESIGN.md" target="_blank" rel="noopener noreferrer"><code>DESIGN.md</code></a> directly in GitHub. The document renders with full Mermaid diagram support - the Security Operations diagram in Section 4.3 and the N-Tier diagram in Appendix A display automatically.
+Open <a href="https://baskar-commits.github.io/globalparks-cloud-network-security/DESIGN.html" target="_blank" rel="noopener noreferrer"><code>DESIGN.md</code></a> on **GitHub Pages** for the browser-rendered document. The same content is in the repo as `DESIGN.md`, where GitHub’s viewer also renders Mermaid for the Security Operations material in Section 4.3 and the N-tier diagram in Appendix A.
 
 The document is structured for two reading modes:
 
 - **Top-down narrative** - Read Sections 1 through 5 in order to understand the architecture from first principles
-- **Scenario-driven** - Jump to <a href="DESIGN.md#6-scenario-traces" target="_blank" rel="noopener noreferrer">Section 6 - Scenario Traces</a> and follow a specific user journey (e.g. SCN-009: Sydney visitor booking Great Barrier Reef), then follow the `STEP-###` links back into Section 5 for detail on each hop
+- **Scenario-driven** - Jump to <a href="https://baskar-commits.github.io/globalparks-cloud-network-security/DESIGN.html#6-scenario-traces" target="_blank" rel="noopener noreferrer">Section 6 - Scenario Traces</a> and follow a specific user journey (e.g. SCN-009: Sydney visitor booking Great Barrier Reef), then follow the `STEP-###` links back into Section 5 for detail on each hop
 
 ## Interactive visualization
 
